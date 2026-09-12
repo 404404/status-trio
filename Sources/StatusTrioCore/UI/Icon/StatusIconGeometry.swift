@@ -56,6 +56,55 @@ enum StatusIconGeometry {
         )
     }
 
+    static func temporaryWedge() -> CGPath {
+        let path = CGMutablePath()
+        path.addPath(wifiOuterArc())
+        path.addLine(to: CGPoint(x: 59.5, y: 77.45))
+        path.closeSubpath()
+        return path
+    }
+
+    static func temporaryScreenOutline() -> CGPath {
+        let path = CGMutablePath()
+        path.addRoundedRect(
+            in: CGRect(x: 50.5, y: 53.5, width: 18, height: 12),
+            cornerWidth: 2.5,
+            cornerHeight: 2.5
+        )
+        return path
+    }
+
+    static func temporaryScreenStand() -> CGPath {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: 57.5, y: 65.5))
+        path.addLine(to: CGPoint(x: 61.5, y: 65.5))
+        path.addLine(to: CGPoint(x: 61.5, y: 67.5))
+        path.addLine(to: CGPoint(x: 63, y: 67.5))
+        path.addLine(to: CGPoint(x: 63, y: 70.5))
+        path.addLine(to: CGPoint(x: 56, y: 70.5))
+        path.addLine(to: CGPoint(x: 56, y: 67.5))
+        path.addLine(to: CGPoint(x: 57.5, y: 67.5))
+        path.closeSubpath()
+        return path
+    }
+
+    static func sharedWedge() -> CGPath {
+        temporaryWedge()
+    }
+
+    static func sharedArrowCutout() -> CGPath {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: 59.5, y: 51.5))
+        path.addLine(to: CGPoint(x: 67.5, y: 59.5))
+        path.addLine(to: CGPoint(x: 63, y: 59.5))
+        path.addLine(to: CGPoint(x: 63, y: 72.5))
+        path.addLine(to: CGPoint(x: 56, y: 72.5))
+        path.addLine(to: CGPoint(x: 56, y: 59.5))
+        path.addLine(to: CGPoint(x: 51.5, y: 59.5))
+        path.closeSubpath()
+        return path
+    }
+
     static func wifiDot() -> CGPath {
         let path = CGMutablePath()
         path.move(to: CGPoint(x: 59.5, y: 69.9))

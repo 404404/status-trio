@@ -146,9 +146,33 @@ enum StatusIconRenderer {
                 context.addPath(path)
                 context.strokePath()
             }
-        case .temporary, .shared:
-            // Task 6 adds the temporary and shared overlay paths.
-            break
+        case .temporary:
+            context.setFillColor(foreground)
+            context.setStrokeColor(foreground)
+            context.setLineWidth(7)
+            context.addPath(StatusIconGeometry.temporaryWedge())
+            context.drawPath(using: .fillStroke)
+
+            context.saveGState()
+            context.setBlendMode(.clear)
+            context.setLineWidth(2.5)
+            context.addPath(StatusIconGeometry.temporaryScreenOutline())
+            context.strokePath()
+            context.addPath(StatusIconGeometry.temporaryScreenStand())
+            context.fillPath()
+            context.restoreGState()
+        case .shared:
+            context.setFillColor(foreground)
+            context.setStrokeColor(foreground)
+            context.setLineWidth(7)
+            context.addPath(StatusIconGeometry.sharedWedge())
+            context.drawPath(using: .fillStroke)
+
+            context.saveGState()
+            context.setBlendMode(.clear)
+            context.addPath(StatusIconGeometry.sharedArrowCutout())
+            context.fillPath()
+            context.restoreGState()
         }
     }
 

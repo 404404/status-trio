@@ -287,6 +287,134 @@ final class StatusIconRendererTests: XCTestCase {
         )
     }
 
+    func testTemporaryAndSharedStatesRenderExpectedSizeAndMasks() throws {
+        let temporarySnapshot = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .temporary, rssi: -50),
+            volume: .placeholder
+        )
+        let sharedSnapshot = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .shared, rssi: -50),
+            volume: .placeholder
+        )
+        let connectedSnapshot = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .connected, rssi: -50),
+            volume: .placeholder
+        )
+
+        let temporaryImage = try XCTUnwrap(StatusIconRenderer.render(
+            snapshot: temporarySnapshot,
+            size: 20,
+            scale: 2,
+            foreground: CGColor(gray: 1, alpha: 1)
+        ))
+        let sharedImage = try XCTUnwrap(StatusIconRenderer.render(
+            snapshot: sharedSnapshot,
+            size: 20,
+            scale: 2,
+            foreground: CGColor(gray: 1, alpha: 1)
+        ))
+
+        XCTAssertEqual(temporaryImage.width, 40)
+        XCTAssertEqual(temporaryImage.height, 40)
+        XCTAssertEqual(sharedImage.width, 40)
+        XCTAssertEqual(sharedImage.height, 40)
+
+        let pixelScale: CGFloat = 16
+        let temporaryPixels = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: temporarySnapshot,
+                size: 20,
+                scale: pixelScale,
+                foreground: CGColor(gray: 1, alpha: 1)
+            ))
+        )
+        let sharedPixels = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: sharedSnapshot,
+                size: 20,
+                scale: pixelScale,
+                foreground: CGColor(gray: 1, alpha: 1)
+            ))
+        )
+        let connectedPixels = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: connectedSnapshot,
+                size: 20,
+                scale: pixelScale,
+                foreground: CGColor(gray: 1, alpha: 1)
+            ))
+        )
+        let outerEdgePoint = CGPoint(x: 59.5, y: 50.5)
+
+        XCTAssertGreaterThan(
+            temporaryPixels.alpha(atSVGPoint: outerEdgePoint, size: 20, scale: pixelScale),
+            0
+        )
+        XCTAssertGreaterThan(
+            sharedPixels.alpha(atSVGPoint: outerEdgePoint, size: 20, scale: pixelScale),
+            0
+        )
+        XCTAssertGreaterThan(
+            temporaryPixels.alpha(
+                atSVGPoint: CGPoint(x: 59.5, y: 59.5),
+                size: 20,
+                scale: pixelScale
+            ),
+            0
+        )
+        XCTAssertEqual(
+            temporaryPixels.alpha(
+                atSVGPoint: CGPoint(x: 59.5, y: 53.5),
+                size: 20,
+                scale: pixelScale
+            ),
+            0
+        )
+        XCTAssertEqual(
+            temporaryPixels.alpha(
+                atSVGPoint: CGPoint(x: 59.5, y: 68.5),
+                size: 20,
+                scale: pixelScale
+            ),
+            0
+        )
+        XCTAssertEqual(
+            sharedPixels.alpha(
+                atSVGPoint: CGPoint(x: 59.5, y: 72),
+                size: 20,
+                scale: pixelScale
+            ),
+            0
+        )
+
+        let volumeRegion = CGRect(x: 25, y: 92, width: 75, height: 28)
+        let connectedVolumeAlpha = connectedPixels.alphaSum(
+            inSVGRect: volumeRegion,
+            size: 20,
+            scale: pixelScale
+        )
+        XCTAssertEqual(
+            temporaryPixels.alphaSum(
+                inSVGRect: volumeRegion,
+                size: 20,
+                scale: pixelScale
+            ),
+            connectedVolumeAlpha
+        )
+        XCTAssertEqual(
+            sharedPixels.alphaSum(
+                inSVGRect: volumeRegion,
+                size: 20,
+                scale: pixelScale
+            ),
+            connectedVolumeAlpha
+        )
+        XCTAssertNotEqual(temporaryPixels.bytes, sharedPixels.bytes)
+    }
+
     func testVolumeAlphaSumIncreasesWithVisibleDots() throws {
         let scalars = [0.0, 0.25, 0.50, 0.75, 1.0]
         let volumeRegion = CGRect(x: 25, y: 92, width: 75, height: 28)

@@ -96,6 +96,42 @@ final class StatusIconGeometryTests: XCTestCase {
         )
     }
 
+    func testSpecialWiFiOverlayBounds() {
+        let wedgeBounds = CGRect(
+            x: 38.496939589591584,
+            y: 47.3,
+            width: 42.00612082081681,
+            height: 30.15
+        )
+
+        let temporaryWedge = StatusIconGeometry.temporaryWedge()
+        let temporaryScreenOutline = StatusIconGeometry.temporaryScreenOutline()
+        let temporaryScreenStand = StatusIconGeometry.temporaryScreenStand()
+        let sharedWedge = StatusIconGeometry.sharedWedge()
+        let sharedArrowCutout = StatusIconGeometry.sharedArrowCutout()
+
+        XCTAssertFalse(temporaryWedge.isEmpty)
+        XCTAssertFalse(temporaryScreenOutline.isEmpty)
+        XCTAssertFalse(temporaryScreenStand.isEmpty)
+        XCTAssertFalse(sharedWedge.isEmpty)
+        XCTAssertFalse(sharedArrowCutout.isEmpty)
+
+        assertPathBounds(temporaryWedge, equals: wedgeBounds)
+        assertPathBounds(
+            temporaryScreenOutline,
+            equals: CGRect(x: 50.5, y: 53.5, width: 18, height: 12)
+        )
+        assertPathBounds(
+            temporaryScreenStand,
+            equals: CGRect(x: 56, y: 65.5, width: 7, height: 5)
+        )
+        assertPathBounds(sharedWedge, equals: wedgeBounds)
+        assertPathBounds(
+            sharedArrowCutout,
+            equals: CGRect(x: 51.5, y: 51.5, width: 16, height: 21)
+        )
+    }
+
     func testNoInternetOverlayBounds() {
         let overlay = StatusIconGeometry.noInternetOverlay()
 
