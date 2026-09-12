@@ -1,14 +1,14 @@
-# Duo Menubar 设计规格
+# Status Trio 设计规格
 
 - 日期：2026-09-12
-- 产品名称：Duo Menubar
-- Bundle Identifier：`com.lingsmbp.DuoMenubar`
+- 产品名称：Status Trio
+- Bundle Identifier：`com.lingsmbp.StatusTrio`
 - 目标系统：macOS 15+
 - 技术路线：原生 SwiftUI + AppKit
 
 ## 1. 背景与目标
 
-Duo Menubar 是一个仅供个人使用、常驻 macOS 菜单栏的状态工具。它把电池容量、Wi‑Fi 状态和音量状态组合进一个 20 pt 图标中，并在左键弹层和右键菜单中提供少量交互。
+Status Trio 是一个仅供个人使用、常驻 macOS 菜单栏的状态工具。它把电池容量、Wi‑Fi 状态和音量状态组合进一个 20 pt 图标中，并在左键弹层和右键菜单中提供少量交互。
 
 第一版的目标是完整跑通以下链路：
 
@@ -74,10 +74,10 @@ Duo Menubar 是一个仅供个人使用、常驻 macOS 菜单栏的状态工具�
 
 右键或 Control-click 显示原生菜单，内容依次为：
 
-1. `Duo Menubar 1.0.0`，不可点击。
+1. `Status Trio 1.0.0`，不可点击。
 2. `设置…`，不可点击并标注“即将推出”。
 3. 分隔线。
-4. `退出 Duo Menubar`。
+4. `退出 Status Trio`。
 
 右键菜单与左键弹层互斥；打开一个时关闭另一个。应用只有一个实例，退出菜单关闭整个应用。
 
