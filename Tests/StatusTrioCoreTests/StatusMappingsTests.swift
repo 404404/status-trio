@@ -1,0 +1,86 @@
+import XCTest
+@testable import StatusTrioCore
+
+final class StatusMappingsTests: XCTestCase {
+    func testWiFiSignalBoundaries() {
+        XCTAssertEqual(StatusMappings.wifiBars(rssi: -54), 3)
+        XCTAssertEqual(StatusMappings.wifiBars(rssi: -55), 3)
+        XCTAssertEqual(StatusMappings.wifiBars(rssi: -56), 2)
+        XCTAssertEqual(StatusMappings.wifiBars(rssi: -70), 2)
+        XCTAssertEqual(StatusMappings.wifiBars(rssi: -71), 1)
+        XCTAssertEqual(StatusMappings.wifiBars(rssi: -85), 1)
+        XCTAssertEqual(StatusMappings.wifiBars(rssi: -86), 0)
+        XCTAssertEqual(StatusMappings.wifiBars(rssi: nil), 0)
+    }
+
+    func testVolumeBoundaries() {
+        XCTAssertEqual(StatusMappings.volumeSteps(scalar: 0, isMuted: false), 0)
+        XCTAssertEqual(StatusMappings.volumeSteps(scalar: -0.1, isMuted: false), 0)
+        XCTAssertEqual(StatusMappings.volumeSteps(scalar: 0.01, isMuted: false), 1)
+        XCTAssertEqual(StatusMappings.volumeSteps(scalar: 0.25, isMuted: false), 1)
+        XCTAssertEqual(StatusMappings.volumeSteps(scalar: 0.26, isMuted: false), 2)
+        XCTAssertEqual(StatusMappings.volumeSteps(scalar: 0.50, isMuted: false), 2)
+        XCTAssertEqual(StatusMappings.volumeSteps(scalar: 0.51, isMuted: false), 3)
+        XCTAssertEqual(StatusMappings.volumeSteps(scalar: 0.75, isMuted: false), 3)
+        XCTAssertEqual(StatusMappings.volumeSteps(scalar: 0.76, isMuted: false), 4)
+        XCTAssertEqual(StatusMappings.volumeSteps(scalar: 1.0, isMuted: false), 4)
+        XCTAssertEqual(StatusMappings.volumeSteps(scalar: 1.1, isMuted: false), 4)
+        XCTAssertEqual(StatusMappings.volumeSteps(scalar: 0.8, isMuted: true), 0)
+        XCTAssertNil(StatusMappings.volumeSteps(scalar: nil, isMuted: false))
+    }
+
+    func testBatteryProgress() {
+        XCTAssertEqual(StatusMappings.batteryProgress(makeBattery(rawPercentage: 0)), 0.0)
+        XCTAssertEqual(StatusMappings.batteryProgress(makeBattery(rawPercentage: 100)), 1.0)
+        XCTAssertEqual(StatusMappings.batteryProgress(makeBattery(rawPercentage: -1)), 0.0)
+        XCTAssertEqual(StatusMappings.batteryProgress(makeBattery(rawPercentage: 101)), 1.0)
+    }
+
+    func testBatteryColorPriority() {
+        let normal = BatteryStatus(
+            rawPercentage: 100,
+            isPresent: true,
+            isCharging: false,
+            isLowPowerMode: false,
+            isConnectedToPower: false
+        )
+        XCTAssertEqual(StatusMappings.batteryColorRole(normal), .foreground)
+
+        let lowPower = BatteryStatus(
+            rawPercentage: 100,
+            isPresent: true,
+            isCharging: false,
+            isLowPowerMode: true,
+            isConnectedToPower: false
+        )
+        XCTAssertEqual(StatusMappings.batteryColorRole(lowPower), .lowPower)
+
+        let chargingOnly = BatteryStatus(
+            rawPercentage: 100,
+            isPresent: true,
+            isCharging: true,
+            isLowPowerMode: false,
+            isConnectedToPower: true
+        )
+        XCTAssertEqual(StatusMappings.batteryColorRole(chargingOnly), .charging)
+
+        let charging = BatteryStatus(
+            rawPercentage: 100,
+            isPresent: true,
+            isCharging: true,
+            isLowPowerMode: true,
+            isConnectedToPower: true
+        )
+        XCTAssertEqual(StatusMappings.batteryColorRole(charging), .charging)
+    }
+
+    private func makeBattery(rawPercentage: Int?) -> BatteryStatus {
+        BatteryStatus(
+            rawPercentage: rawPercentage,
+            isPresent: true,
+            isCharging: false,
+            isLowPowerMode: false,
+            isConnectedToPower: false
+        )
+    }
+}
