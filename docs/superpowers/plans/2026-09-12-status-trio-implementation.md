@@ -5367,6 +5367,9 @@ git commit -m "feat: wire live system monitors"
 
 ### Task 13: Harden refresh, wake recovery, and monitor failures
 
+> **Executed implementation note:** `SystemStatusStore` now accepts an injected `NotificationCenter` so observer add/remove behavior is testable. The battery, Wi-Fi, and volume loggers use subsystem `com.lingsmbp.StatusTrio`. Wake and failure-isolation tests use one-shot expectation guards and have been stress-tested.
+
+
 **Files:**
 - Modify: `Sources/StatusTrioCore/Store/SystemStatusStore.swift`
 - Modify: `Sources/StatusTrioCore/Monitoring/BatteryMonitor.swift`
@@ -5374,7 +5377,7 @@ git commit -m "feat: wire live system monitors"
 - Modify: `Sources/StatusTrioCore/Monitoring/VolumeMonitor.swift`
 - Modify: `Tests/StatusTrioCoreTests/SystemStatusStoreTests.swift`
 
-- [ ] **Step 1: Write failing recovery tests**
+- [x] **Step 1: Write failing recovery tests**
 
 Add `import AppKit` to `SystemStatusStoreTests.swift`, then append:
 
@@ -5448,17 +5451,17 @@ private final class CountingBatteryMonitor: BatteryMonitoring {
 }
 ```
 
-- [ ] **Step 2: Run the recovery tests to verify they fail**
+- [x] **Step 2: Run the recovery tests to verify they fail**
 
 Run:
 
 ```bash
-swift test --filter SystemStatusStoreTests
+bash scripts/test.sh SystemStatusStoreTests
 ```
 
 Expected: `testWakeNotificationTriggersRefresh` fails because the store does not observe wake notifications.
 
-- [ ] **Step 3: Observe wake notifications in the store**
+- [x] **Step 3: Observe wake notifications in the store**
 
 Add to `SystemStatusStore`:
 
@@ -5489,7 +5492,7 @@ In `stop()`, add:
 
 Import AppKit in `SystemStatusStore.swift`.
 
-- [ ] **Step 4: Rebuild Wi-Fi monitoring without finishing its stream**
+- [x] **Step 4: Rebuild Wi-Fi monitoring without finishing its stream**
 
 Keep the stream alive across CoreWLAN interruptions. Change `WiFiMonitor.pathMonitor` from a `let` to:
 
@@ -5534,12 +5537,12 @@ When `IOPSNotificationCreateRunLoopSource` returns `nil`, log without disabling 
         }
 ```
 
-- [ ] **Step 5: Run tests, sleep/wake smoke test, and commit**
+- [x] **Step 5: Run tests, sleep/wake smoke test, and commit**
 
 Run:
 
 ```bash
-swift test
+bash scripts/test.sh
 swift run StatusTrio
 ```
 
