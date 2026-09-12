@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import SwiftUI
 
 @MainActor
 final class StatusBarController: NSObject {
@@ -9,6 +10,7 @@ final class StatusBarController: NSObject {
     }
 
     private let statusItem: NSStatusItem
+    private let popover = NSPopover()
     private let store: SystemStatusStore
     private var cancellable: AnyCancellable?
     private let quitAction: () -> Void
@@ -21,6 +23,7 @@ final class StatusBarController: NSObject {
         super.init()
 
         configureButton()
+        configurePopover()
         render(snapshot: store.snapshot)
 
         cancellable = store.$snapshot
@@ -64,9 +67,32 @@ final class StatusBarController: NSObject {
 
         switch click {
         case .left:
-            break
+            togglePopover()
         case .right:
+            popover.performClose(nil)
             showMenu()
+        }
+    }
+
+    private func configurePopover() {
+        popover.behavior = .transient
+        let hostingController = NSHostingController(
+            rootView: StatusPopoverView(store: store, quit: quitAction)
+        )
+        hostingController.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = hostingController
+    }
+
+    private func togglePopover() {
+        guard let button = statusItem.button else { return }
+        if popover.isShown {
+            popover.performClose(nil)
+        } else {
+            popover.show(
+                relativeTo: button.bounds,
+                of: button,
+                preferredEdge: .minY
+            )
         }
     }
 
