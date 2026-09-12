@@ -39,6 +39,10 @@ final class SystemStatusStore: ObservableObject {
         self.snapshot = initialSnapshot
     }
 
+    isolated deinit {
+        stop()
+    }
+
     func start() {
         guard !hasStarted, !hasStopped else { return }
         hasStarted = true
@@ -48,8 +52,10 @@ final class SystemStatusStore: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in
-                self?.refreshAll()
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.recoverAll()
+                self.refreshAll()
             }
         }
 
@@ -57,29 +63,33 @@ final class SystemStatusStore: ObservableObject {
         wifiMonitor.start()
         volumeMonitor.start()
 
+        let batteryUpdates = batteryMonitor.updates
+        let wifiUpdates = wifiMonitor.updates
+        let volumeUpdates = volumeMonitor.updates
         monitorTasks = [
             Task { [weak self] in
-                guard let self else { return }
-                for await value in batteryMonitor.updates {
+                for await value in batteryUpdates {
+                    guard let self else { return }
                     self.applyBattery(value)
                 }
             },
             Task { [weak self] in
-                guard let self else { return }
-                for await value in wifiMonitor.updates {
+                for await value in wifiUpdates {
+                    guard let self else { return }
                     self.applyWiFi(value)
                 }
             },
             Task { [weak self] in
-                guard let self else { return }
-                for await value in volumeMonitor.updates {
+                for await value in volumeUpdates {
+                    guard let self else { return }
                     self.applyVolume(value)
                 }
             }
         ]
 
+        let refreshInterval = refreshInterval
+        let sleep = sleep
         refreshTask = Task { [weak self] in
-            guard let self else { return }
             while !Task.isCancelled {
                 do {
                     try await sleep(refreshInterval)
@@ -87,6 +97,7 @@ final class SystemStatusStore: ObservableObject {
                     return
                 }
                 guard !Task.isCancelled else { return }
+                guard let self else { return }
                 self.refreshAll()
             }
         }
@@ -117,6 +128,12 @@ final class SystemStatusStore: ObservableObject {
         volumeMonitor.refresh()
     }
 
+    private func recoverAll() {
+        batteryMonitor.recover()
+        wifiMonitor.recover()
+        volumeMonitor.recover()
+    }
+
     private func applyBattery(_ value: BatteryStatus) {
         publish(snapshot.replacingBattery(value))
     }
@@ -130,7 +147,7 @@ final class SystemStatusStore: ObservableObject {
     }
 
     private func publish(_ next: StatusSnapshot) {
-        guard next != lastPublishedSnapshot else { return }
+        guard !hasStopped, next != lastPublishedSnapshot else { return }
         lastPublishedSnapshot = next
         snapshot = next
     }

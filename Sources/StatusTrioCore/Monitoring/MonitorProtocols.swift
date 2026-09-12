@@ -6,6 +6,7 @@ protocol BatteryMonitoring: AnyObject {
     func start()
     func stop()
     func refresh()
+    func recover()
 }
 
 @MainActor
@@ -14,6 +15,7 @@ protocol WiFiMonitoring: AnyObject {
     func start()
     func stop()
     func refresh()
+    func recover()
 }
 
 @MainActor
@@ -22,4 +24,5 @@ protocol VolumeMonitoring: AnyObject {
     func start()
     func stop()
     func refresh()
+    func recover()
 }

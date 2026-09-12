@@ -136,6 +136,45 @@ final class VolumeMonitorTests: XCTestCase {
         monitor.stop()
     }
 
+    func testRecoverReinstallsEventMonitorWithoutRefreshingOrFinishingStream() async {
+        let reader = FakeVolumeReader(result: makeReading(scalar: 0.25))
+        let eventMonitor = FakeVolumeEventMonitor()
+        let monitor = makeMonitor(reader: reader, eventMonitor: eventMonitor)
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        _ = await iterator.next()
+
+        monitor.recover()
+
+        XCTAssertEqual(reader.readCount, 1)
+        XCTAssertEqual(eventMonitor.recoverCount, 1)
+
+        reader.result = makeReading(scalar: 0.75)
+        eventMonitor.sendVolumeChange()
+        let recoveredStatus = await iterator.next()
+        XCTAssertEqual(recoveredStatus?.scalar, 0.75)
+        monitor.stop()
+    }
+
+    func testRecoverAfterStopDoesNotReinstallOrEmit() async {
+        let reader = FakeVolumeReader(result: makeReading(scalar: 0.5))
+        let eventMonitor = FakeVolumeEventMonitor()
+        let monitor = makeMonitor(reader: reader, eventMonitor: eventMonitor)
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        _ = await iterator.next()
+        monitor.stop()
+
+        monitor.recover()
+
+        XCTAssertEqual(reader.readCount, 1)
+        XCTAssertEqual(eventMonitor.startCount, 1)
+        XCTAssertEqual(eventMonitor.stopCount, 1)
+        XCTAssertEqual(eventMonitor.recoverCount, 0)
+        let finalStatus = await iterator.next()
+        XCTAssertNil(finalStatus)
+    }
+
     func testStopIsIdempotentAndFinishesUpdates() async {
         let eventMonitor = FakeVolumeEventMonitor()
         let monitor = makeMonitor(
@@ -279,6 +318,29 @@ final class VolumeMonitorTests: XCTestCase {
         XCTAssertTrue(client.removals.isEmpty)
     }
 
+    func testEventMonitorRecoverRemovesAndReinstallsListeners() {
+        let client = FakeCoreAudioClient()
+        client.configureDevice(
+            42,
+            scalar: 0.5,
+            isMuted: false,
+            name: "Speakers",
+            supportedElements: [kAudioObjectPropertyElementMain]
+        )
+        let monitor = CoreAudioVolumeEventMonitor(client: client)
+        monitor.start(onDefaultDeviceChange: {}, onVolumeChange: {})
+        let initialListeners = client.activeListeners
+        let initialSuccessfulAdds = client.successfulAdds
+
+        monitor.recover()
+
+        XCTAssertEqual(client.addAttempts.count, initialSuccessfulAdds.count * 2)
+        XCTAssertEqual(client.successfulAdds.count, initialSuccessfulAdds.count * 2)
+        XCTAssertEqual(Set(client.activeListeners), Set(initialListeners))
+        XCTAssertTrue(initialListeners.allSatisfy { client.removals.contains($0) })
+        monitor.stop()
+    }
+
     func testEventMonitorRetriesFailedDefaultDeviceListener() {
         let client = FakeCoreAudioClient()
         client.configureDevice(42, scalar: 0.5, isMuted: false, name: "Speakers")
@@ -410,6 +472,7 @@ private final class FakeVolumeEventMonitor: VolumeEventMonitoring {
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var reconcileCount = 0
+    private(set) var recoverCount = 0
     private var onDefaultDeviceChange: (@MainActor @Sendable () -> Void)?
     private var onVolumeChange: (@MainActor @Sendable () -> Void)?
 
@@ -424,6 +487,10 @@ private final class FakeVolumeEventMonitor: VolumeEventMonitoring {
 
     func reconcile() {
         reconcileCount += 1
+    }
+
+    func recover() {
+        recoverCount += 1
     }
 
     func stop() {

@@ -133,6 +133,24 @@ final class SystemStatusStoreTests: XCTestCase {
         XCTAssertEqual(volume.stopCount, 1)
     }
 
+    func testBufferedMonitorUpdateAfterStopDoesNotMutateSnapshot() async {
+        let battery = FakeBatteryMonitor()
+        let store = makeStore(
+            battery: battery,
+            wifi: FakeWiFiMonitor(),
+            volume: FakeVolumeMonitor()
+        )
+
+        store.start()
+        let stoppedSnapshot = store.snapshot
+        battery.send(makeBattery(percentage: 42))
+        store.stop()
+        await drainMainActorTasks()
+
+        XCTAssertEqual(store.snapshot, stoppedSnapshot)
+        XCTAssertEqual(battery.stopCount, 1)
+    }
+
     func testStartAfterStopDoesNotStartMonitorsAgain() {
         let battery = FakeBatteryMonitor()
         let wifi = FakeWiFiMonitor()
@@ -219,7 +237,16 @@ final class SystemStatusStoreTests: XCTestCase {
         )
         let refreshed = expectation(description: "all monitors refreshed after wake")
         refreshed.assertForOverFulfill = true
-        volume.onRefresh = { refreshed.fulfill() }
+        var recoveryAndRefreshOrder: [String] = []
+        battery.onRecover = { recoveryAndRefreshOrder.append("battery.recover") }
+        wifi.onRecover = { recoveryAndRefreshOrder.append("wifi.recover") }
+        volume.onRecover = { recoveryAndRefreshOrder.append("volume.recover") }
+        battery.onRefresh = { recoveryAndRefreshOrder.append("battery.refresh") }
+        wifi.onRefresh = { recoveryAndRefreshOrder.append("wifi.refresh") }
+        volume.onRefresh = {
+            recoveryAndRefreshOrder.append("volume.refresh")
+            refreshed.fulfill()
+        }
 
         store.start()
         wakeCenter.post(
@@ -231,6 +258,17 @@ final class SystemStatusStoreTests: XCTestCase {
         XCTAssertEqual(battery.refreshCount, 1)
         XCTAssertEqual(wifi.refreshCount, 1)
         XCTAssertEqual(volume.refreshCount, 1)
+        XCTAssertEqual(battery.recoverCount, 1)
+        XCTAssertEqual(wifi.recoverCount, 1)
+        XCTAssertEqual(volume.recoverCount, 1)
+        XCTAssertEqual(recoveryAndRefreshOrder, [
+            "battery.recover",
+            "wifi.recover",
+            "volume.recover",
+            "battery.refresh",
+            "wifi.refresh",
+            "volume.refresh"
+        ])
         store.stop()
     }
 
@@ -263,6 +301,32 @@ final class SystemStatusStoreTests: XCTestCase {
         XCTAssertEqual(battery.refreshCount, 0)
         XCTAssertEqual(wifi.refreshCount, 0)
         XCTAssertEqual(volume.refreshCount, 0)
+        XCTAssertEqual(battery.recoverCount, 0)
+        XCTAssertEqual(wifi.recoverCount, 0)
+        XCTAssertEqual(volume.recoverCount, 0)
+    }
+
+    func testStoreDeallocatesWhenMonitorTasksOnlyReferenceItWeakly() {
+        let battery = FakeBatteryMonitor()
+        let wifi = FakeWiFiMonitor()
+        let volume = FakeVolumeMonitor()
+        weak var weakStore: SystemStatusStore?
+
+        do {
+            var store: SystemStatusStore? = makeStore(
+                battery: battery,
+                wifi: wifi,
+                volume: volume
+            )
+            weakStore = store
+            store?.start()
+            store = nil
+        }
+
+        XCTAssertNil(weakStore)
+        battery.stop()
+        wifi.stop()
+        volume.stop()
     }
 
     func testUnavailableMonitorDoesNotPreventOtherValuesFromMerging() async {
@@ -351,6 +415,10 @@ final class SystemStatusStoreTests: XCTestCase {
             isLowPowerMode: false,
             isConnectedToPower: false
         )
+    }
+
+    private func drainMainActorTasks() async {
+        await Task { @MainActor in }.value
     }
 }
 
@@ -462,6 +530,8 @@ private final class FakeBatteryMonitor: BatteryMonitoring {
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var refreshCount = 0
+    private(set) var recoverCount = 0
+    var onRecover: (() -> Void)?
     var onRefresh: (() -> Void)?
     private let continuation: AsyncStream<BatteryStatus>.Continuation
 
@@ -478,6 +548,10 @@ private final class FakeBatteryMonitor: BatteryMonitoring {
         refreshCount += 1
         onRefresh?()
     }
+    func recover() {
+        recoverCount += 1
+        onRecover?()
+    }
     func send(_ value: BatteryStatus) { continuation.yield(value) }
 }
 
@@ -487,7 +561,10 @@ private final class FakeWiFiMonitor: WiFiMonitoring {
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var refreshCount = 0
+    private(set) var recoverCount = 0
     private(set) var finishCount = 0
+    var onRecover: (() -> Void)?
+    var onRefresh: (() -> Void)?
     private let continuation: AsyncStream<WiFiStatus>.Continuation
 
     init() { (updates, continuation) = AsyncStream.makeStream() }
@@ -496,7 +573,14 @@ private final class FakeWiFiMonitor: WiFiMonitoring {
         stopCount += 1
         continuation.finish()
     }
-    func refresh() { refreshCount += 1 }
+    func refresh() {
+        refreshCount += 1
+        onRefresh?()
+    }
+    func recover() {
+        recoverCount += 1
+        onRecover?()
+    }
     func send(_ value: WiFiStatus) { continuation.yield(value) }
     func finishUpdates() {
         finishCount += 1
@@ -510,6 +594,8 @@ private final class FakeVolumeMonitor: VolumeMonitoring {
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var refreshCount = 0
+    private(set) var recoverCount = 0
+    var onRecover: (() -> Void)?
     var onRefresh: (() -> Void)?
     private let continuation: AsyncStream<VolumeStatus>.Continuation
 
@@ -522,6 +608,10 @@ private final class FakeVolumeMonitor: VolumeMonitoring {
     func refresh() {
         refreshCount += 1
         onRefresh?()
+    }
+    func recover() {
+        recoverCount += 1
+        onRecover?()
     }
     func send(_ value: VolumeStatus) { continuation.yield(value) }
 }

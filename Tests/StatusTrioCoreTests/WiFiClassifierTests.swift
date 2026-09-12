@@ -317,6 +317,53 @@ final class WiFiClassifierTests: XCTestCase {
         XCTAssertEqual(status, .placeholder)
     }
 
+    func testStaleReadFailureRecoversAndLaterSuccessRestoresState() async {
+        let clock = ManualWiFiClock(now: Date(timeIntervalSinceReferenceDate: 3_000))
+        let reader = FakeWiFiSystemReader(result: makeReading(mode: .station, rssi: -50))
+        let eventMonitor = FakeWiFiEventMonitor()
+        let pathMonitor = FakeWiFiPathMonitor()
+        let monitor = makeMonitor(
+            reader: reader,
+            eventMonitor: eventMonitor,
+            pathMonitor: pathMonitor,
+            clock: clock
+        )
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        let initialStatus = await iterator.next()
+        XCTAssertEqual(initialStatus, WiFiStatus(state: .connected, rssi: -50))
+
+        reader.result = nil
+        clock.advance(by: 30.001)
+        monitor.refresh()
+        let staleStatus = await iterator.next()
+        XCTAssertEqual(staleStatus, .placeholder)
+        XCTAssertEqual(eventMonitor.restartCount, 1)
+        XCTAssertEqual(pathMonitor.cancelCount, 1)
+        XCTAssertEqual(pathMonitor.startCount, 2)
+
+        monitor.refresh()
+        let repeatedFailureStatus = await iterator.next()
+        XCTAssertEqual(repeatedFailureStatus, .placeholder)
+        XCTAssertEqual(eventMonitor.restartCount, 1)
+        XCTAssertEqual(pathMonitor.cancelCount, 1)
+        XCTAssertEqual(pathMonitor.startCount, 2)
+
+        clock.advance(by: 30.001)
+        monitor.refresh()
+        let retryStatus = await iterator.next()
+        XCTAssertEqual(retryStatus, .placeholder)
+        XCTAssertEqual(eventMonitor.restartCount, 2)
+        XCTAssertEqual(pathMonitor.cancelCount, 2)
+        XCTAssertEqual(pathMonitor.startCount, 3)
+
+        reader.result = makeReading(mode: .station, rssi: -62)
+        monitor.refresh()
+        let restoredStatus = await iterator.next()
+        XCTAssertEqual(restoredStatus, WiFiStatus(state: .connected, rssi: -62))
+        monitor.stop()
+    }
+
     func testCoreWLANModeMapping() {
         XCTAssertEqual(WiFiInterfaceMode(coreWLANMode: .none), .none)
         XCTAssertEqual(WiFiInterfaceMode(coreWLANMode: .station), .station)
@@ -332,7 +379,12 @@ final class WiFiClassifierTests: XCTestCase {
             clientFactory: { clients.removeFirst() }
         )
         let delegate = FakeCWEventDelegate()
-        let events: [CWEventType] = [.powerDidChange, .linkDidChange]
+        let events: [CWEventType] = [
+            .powerDidChange,
+            .ssidDidChange,
+            .bssidDidChange,
+            .linkDidChange
+        ]
 
         eventMonitor.start(delegate: delegate, events: events)
         eventMonitor.restart(delegate: delegate, events: events)
@@ -362,7 +414,14 @@ final class WiFiClassifierTests: XCTestCase {
         XCTAssertEqual(eventMonitor.startCount, 1)
         XCTAssertEqual(
             eventMonitor.events,
-            [.powerDidChange, .linkDidChange, .linkQualityDidChange, .modeDidChange]
+            [
+                .powerDidChange,
+                .ssidDidChange,
+                .bssidDidChange,
+                .linkDidChange,
+                .linkQualityDidChange,
+                .modeDidChange
+            ]
         )
         XCTAssertTrue(eventMonitor.delegate === monitor)
         XCTAssertEqual(pathMonitor.startCount, 1)
@@ -390,7 +449,12 @@ final class WiFiClassifierTests: XCTestCase {
     func testConnectionInterruptionRefreshesWithoutRestarting() async {
         let reader = FakeWiFiSystemReader(result: makeReading())
         let eventMonitor = FakeWiFiEventMonitor()
-        let monitor = makeMonitor(reader: reader, eventMonitor: eventMonitor)
+        let pathMonitor = FakeWiFiPathMonitor()
+        let monitor = makeMonitor(
+            reader: reader,
+            eventMonitor: eventMonitor,
+            pathMonitor: pathMonitor
+        )
         monitor.start()
         var iterator = monitor.updates.makeAsyncIterator()
         _ = await iterator.next()
@@ -400,13 +464,20 @@ final class WiFiClassifierTests: XCTestCase {
 
         XCTAssertEqual(reader.readCount, 2)
         XCTAssertEqual(eventMonitor.restartCount, 0)
+        XCTAssertEqual(pathMonitor.cancelCount, 0)
+        XCTAssertEqual(pathMonitor.startCount, 1)
         monitor.stop()
     }
 
     func testConnectionInvalidationRestartsAndRefreshes() async {
         let reader = FakeWiFiSystemReader(result: makeReading())
         let eventMonitor = FakeWiFiEventMonitor()
-        let monitor = makeMonitor(reader: reader, eventMonitor: eventMonitor)
+        let pathMonitor = FakeWiFiPathMonitor()
+        let monitor = makeMonitor(
+            reader: reader,
+            eventMonitor: eventMonitor,
+            pathMonitor: pathMonitor
+        )
         monitor.start()
         var iterator = monitor.updates.makeAsyncIterator()
         _ = await iterator.next()
@@ -418,7 +489,77 @@ final class WiFiClassifierTests: XCTestCase {
         XCTAssertEqual(eventMonitor.restartCount, 1)
         XCTAssertEqual(eventMonitor.restartEvents, eventMonitor.events)
         XCTAssertTrue(eventMonitor.delegate === monitor)
+        XCTAssertEqual(pathMonitor.cancelCount, 1)
+        XCTAssertEqual(pathMonitor.startCount, 2)
         monitor.stop()
+    }
+
+    func testSSIDAndBSSIDChangesRefresh() async {
+        let reader = FakeWiFiSystemReader(result: makeReading())
+        let eventMonitor = FakeWiFiEventMonitor()
+        let monitor = makeMonitor(reader: reader, eventMonitor: eventMonitor)
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        _ = await iterator.next()
+
+        eventMonitor.delegate?.ssidDidChangeForWiFiInterface?(withName: "en0")
+        _ = await iterator.next()
+        eventMonitor.delegate?.bssidDidChangeForWiFiInterface?(withName: "en0")
+        _ = await iterator.next()
+
+        XCTAssertEqual(reader.readCount, 3)
+        monitor.stop()
+    }
+
+    func testRecoverRestartsMonitoringWithoutFinishingStream() async {
+        let reader = FakeWiFiSystemReader(result: makeReading(rssi: -50))
+        let eventMonitor = FakeWiFiEventMonitor()
+        let pathMonitor = FakeWiFiPathMonitor()
+        let monitor = makeMonitor(
+            reader: reader,
+            eventMonitor: eventMonitor,
+            pathMonitor: pathMonitor
+        )
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        _ = await iterator.next()
+
+        monitor.recover()
+
+        XCTAssertEqual(reader.readCount, 1)
+        XCTAssertEqual(eventMonitor.restartCount, 1)
+        XCTAssertEqual(pathMonitor.cancelCount, 1)
+        XCTAssertEqual(pathMonitor.startCount, 2)
+
+        reader.result = makeReading(rssi: -70)
+        monitor.refresh()
+        let recoveredStatus = await iterator.next()
+        XCTAssertEqual(recoveredStatus, WiFiStatus(state: .connected, rssi: -70))
+        monitor.stop()
+    }
+
+    func testRecoverAfterStopDoesNotRestartOrEmit() async {
+        let reader = FakeWiFiSystemReader(result: makeReading())
+        let eventMonitor = FakeWiFiEventMonitor()
+        let pathMonitor = FakeWiFiPathMonitor()
+        let monitor = makeMonitor(
+            reader: reader,
+            eventMonitor: eventMonitor,
+            pathMonitor: pathMonitor
+        )
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        _ = await iterator.next()
+        monitor.stop()
+
+        monitor.recover()
+
+        XCTAssertEqual(reader.readCount, 1)
+        XCTAssertEqual(eventMonitor.restartCount, 0)
+        XCTAssertEqual(pathMonitor.cancelCount, 1)
+        XCTAssertEqual(pathMonitor.startCount, 1)
+        let finalStatus = await iterator.next()
+        XCTAssertNil(finalStatus)
     }
 
     func testDeinitWithoutStopTearsDownAndFinishesUpdates() async {

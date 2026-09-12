@@ -116,12 +116,15 @@ enum StatusIconRenderer {
 
         switch wifi.state {
         case .connected:
-            let color = bars == 0 ? mutedColor : foreground
-            drawWiFiSignal(level: bars, color: color, in: context)
+            if bars == 0 {
+                drawWiFiSignal(level: 3, color: mutedColor, in: context)
+            } else {
+                drawWiFiSignal(level: bars, color: foreground, in: context)
+            }
         case .notAssociated, .off, .unavailable:
             drawWiFiSignal(level: 3, color: mutedColor, in: context)
 
-            if wifi.state == .off {
+            if wifi.state == .off || wifi.state == .unavailable {
                 context.setStrokeColor(mutedColor)
                 context.setLineWidth(6)
                 context.addPath(StatusIconGeometry.wifiOffSlash())

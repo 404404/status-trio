@@ -100,7 +100,7 @@ final class StatusIconRendererTests: XCTestCase {
         ))
     }
 
-    func testOffStateDrawsSlashOutsideWiFiArcs() throws {
+    func testOffAndUnavailableStatesDrawSlashOutsideWiFiArcs() throws {
         let offSnapshot = StatusSnapshot(
             battery: .placeholder,
             wifi: WiFiStatus(state: .off, rssi: nil),
@@ -109,6 +109,11 @@ final class StatusIconRendererTests: XCTestCase {
         let unavailableSnapshot = StatusSnapshot(
             battery: .placeholder,
             wifi: WiFiStatus(state: .unavailable, rssi: nil),
+            volume: .placeholder
+        )
+        let notAssociatedSnapshot = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .notAssociated, rssi: nil),
             volume: .placeholder
         )
         let offPixels = try PixelBuffer(
@@ -127,14 +132,26 @@ final class StatusIconRendererTests: XCTestCase {
                 foreground: CGColor(gray: 1, alpha: 1)
             ))
         )
+        let notAssociatedPixels = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: notAssociatedSnapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1)
+            ))
+        )
         let slashPoint = CGPoint(x: 75, y: 73)
 
         XCTAssertGreaterThan(
             offPixels.alpha(atSVGPoint: slashPoint, size: 20, scale: 8),
             0
         )
-        XCTAssertEqual(
+        XCTAssertGreaterThan(
             unavailablePixels.alpha(atSVGPoint: slashPoint, size: 20, scale: 8),
+            0
+        )
+        XCTAssertEqual(
+            notAssociatedPixels.alpha(atSVGPoint: slashPoint, size: 20, scale: 8),
             0
         )
     }
@@ -217,8 +234,42 @@ final class StatusIconRendererTests: XCTestCase {
         XCTAssertGreaterThan(bitmap.pixelsHigh, 0)
     }
 
-    func testConnectedSignalAlphaSumIncreasesWithBars() throws {
-        let rssiValues: [Int?] = [nil, -85, -70, -55]
+    func testConnectedZeroBarsMatchesFullMutedSignalAndDiffersFromHigherBars() throws {
+        let zeroBars = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .connected, rssi: nil),
+            volume: .placeholder
+        )
+        let notAssociated = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .notAssociated, rssi: nil),
+            volume: .placeholder
+        )
+        let oneBar = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .connected, rssi: -85),
+            volume: .placeholder
+        )
+        let twoBars = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .connected, rssi: -70),
+            volume: .placeholder
+        )
+        let threeBars = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .connected, rssi: -55),
+            volume: .placeholder
+        )
+
+        let zeroPixels = try renderPixels(zeroBars)
+        XCTAssertEqual(zeroPixels.bytes, try renderPixels(notAssociated).bytes)
+        XCTAssertNotEqual(zeroPixels.bytes, try renderPixels(oneBar).bytes)
+        XCTAssertNotEqual(zeroPixels.bytes, try renderPixels(twoBars).bytes)
+        XCTAssertNotEqual(zeroPixels.bytes, try renderPixels(threeBars).bytes)
+    }
+
+    func testConnectedNonzeroSignalAlphaSumIncreasesWithBars() throws {
+        let rssiValues: [Int?] = [-85, -70, -55]
         let signalRegion = CGRect(x: 35, y: 43, width: 50, height: 43)
         var alphaSums: [Int] = []
 
@@ -228,14 +279,7 @@ final class StatusIconRendererTests: XCTestCase {
                 wifi: WiFiStatus(state: .connected, rssi: rssi),
                 volume: .placeholder
             )
-            let pixels = try PixelBuffer(
-                image: try XCTUnwrap(StatusIconRenderer.render(
-                    snapshot: snapshot,
-                    size: 20,
-                    scale: 8,
-                    foreground: CGColor(gray: 1, alpha: 1)
-                ))
-            )
+            let pixels = try renderPixels(snapshot)
             alphaSums.append(pixels.alphaSum(
                 inSVGRect: signalRegion,
                 size: 20,
@@ -246,6 +290,32 @@ final class StatusIconRendererTests: XCTestCase {
         for index in 0..<(alphaSums.count - 1) {
             XCTAssertLessThan(alphaSums[index], alphaSums[index + 1])
         }
+    }
+
+    func testRendererResolvesForegroundForAquaAndDarkAqua() throws {
+        let snapshot = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .connected, rssi: -55),
+            volume: .placeholder
+        )
+        let aqua = try XCTUnwrap(NSAppearance(named: .aqua))
+        let darkAqua = try XCTUnwrap(NSAppearance(named: .darkAqua))
+        let aquaPixels = try renderPixels(image: StatusIconRenderer.image(
+            snapshot: snapshot,
+            size: 20,
+            appearance: aqua
+        ))
+        let darkAquaPixels = try renderPixels(image: StatusIconRenderer.image(
+            snapshot: snapshot,
+            size: 20,
+            appearance: darkAqua
+        ))
+        let aquaLuminance = try XCTUnwrap(aquaPixels.averageOpaqueLuminance())
+        let darkAquaLuminance = try XCTUnwrap(darkAquaPixels.averageOpaqueLuminance())
+
+        XCTAssertLessThan(aquaLuminance, 0.2)
+        XCTAssertGreaterThan(darkAquaLuminance, 0.8)
+        XCTAssertGreaterThan(darkAquaLuminance - aquaLuminance, 0.6)
     }
 
     func testHotspotOverlayPointIsUnique() throws {
@@ -502,6 +572,26 @@ final class StatusIconRendererTests: XCTestCase {
             XCTAssertEqual(alpha, expectedAlpha, accuracy: 2)
         }
     }
+
+    private func renderPixels(_ snapshot: StatusSnapshot) throws -> PixelBuffer {
+        try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1)
+            ))
+        )
+    }
+
+    private func renderPixels(image: NSImage) throws -> PixelBuffer {
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(
+            data: try XCTUnwrap(image.tiffRepresentation)
+        ))
+        return try PixelBuffer(
+            image: try XCTUnwrap(bitmap.cgImage)
+        )
+    }
 }
 
 private struct PixelBuffer {
@@ -569,6 +659,23 @@ private struct PixelBuffer {
                 && abs(pixelGreen - green) <= tolerance
                 && abs(pixelBlue - blue) <= tolerance
         }
+    }
+
+    func averageOpaqueLuminance(minimumAlpha: UInt8 = 200) -> Double? {
+        var luminanceSum = 0.0
+        var pixelCount = 0
+
+        for index in stride(from: 0, to: bytes.count - 3, by: 4) {
+            guard bytes[index + 3] >= minimumAlpha else { continue }
+            let red = Double(bytes[index]) / 255.0
+            let green = Double(bytes[index + 1]) / 255.0
+            let blue = Double(bytes[index + 2]) / 255.0
+            luminanceSum += 0.2126 * red + 0.7152 * green + 0.0722 * blue
+            pixelCount += 1
+        }
+
+        guard pixelCount > 0 else { return nil }
+        return luminanceSum / Double(pixelCount)
     }
 
     private func pixelPoint(

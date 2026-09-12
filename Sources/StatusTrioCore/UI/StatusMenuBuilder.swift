@@ -14,7 +14,7 @@ enum StatusMenuBuilder {
         menu.addItem(versionItem)
 
         let settingsItem = NSMenuItem(
-            title: "设置…",
+            title: StatusPresentation.settingsPlaceholder,
             action: nil,
             keyEquivalent: ""
         )

@@ -173,10 +173,53 @@ final class BatteryMonitorTests: XCTestCase {
         XCTAssertEqual(reader.readCount, 1)
     }
 
+    func testRecoverReinstallsNotificationsAndKeepsStreamAlive() async {
+        let reader = FakeBatteryReader(result: makeReading(percentage: 50))
+        let harness = IOPSNotificationSourceHarness()
+        defer { harness.releaseRetainedContexts() }
+        let monitor = BatteryMonitor(
+            reader: reader,
+            lowPowerModeProvider: { false },
+            iopsRunLoopSourceFactory: harness.factory
+        )
+
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        _ = await iterator.next()
+
+        monitor.recover()
+
+        XCTAssertEqual(harness.factoryInvocationCount, 2)
+        XCTAssertNotNil(harness.contextPointer)
+        XCTAssertNotNil(harness.callback)
+        XCTAssertTrue(CFRunLoopContainsSource(CFRunLoopGetMain(), harness.source, .defaultMode))
+
+        reader.result = makeReading(percentage: 60)
+        harness.invokeCallback()
+        let callbackValue = await iterator.next()
+        XCTAssertEqual(callbackValue?.percentage, 60)
+
+        let lowPowerStateRead = expectation(description: "low power state read")
+        lowPowerStateRead.assertForOverFulfill = true
+        reader.onReadCount = { count in
+            if count == 3 {
+                lowPowerStateRead.fulfill()
+            }
+        }
+        NotificationCenter.default.post(
+            name: .NSProcessInfoPowerStateDidChange,
+            object: nil
+        )
+        await fulfillment(of: [lowPowerStateRead], timeout: 1)
+
+        XCTAssertEqual(reader.readCount, 3)
+        monitor.stop()
+    }
+
     func testStartAndStopAreIdempotent() {
         let reader = FakeBatteryReader(result: makeReading(percentage: 50))
         let harness = IOPSNotificationSourceHarness()
-        defer { harness.releaseRetainedContext() }
+        defer { harness.releaseRetainedContexts() }
         let monitor = BatteryMonitor(
             reader: reader,
             lowPowerModeProvider: { false },
@@ -200,7 +243,7 @@ final class BatteryMonitorTests: XCTestCase {
     func testIOPSNotificationCallbackRefreshesUntilStopped() async {
         let reader = FakeBatteryReader(result: makeReading(percentage: 50))
         let harness = IOPSNotificationSourceHarness()
-        defer { harness.releaseRetainedContext() }
+        defer { harness.releaseRetainedContexts() }
         let monitor = BatteryMonitor(
             reader: reader,
             lowPowerModeProvider: { false },
@@ -231,8 +274,7 @@ final class BatteryMonitorTests: XCTestCase {
 
         reader.result = makeReading(percentage: 70)
         harness.invokeCallback()
-        await Task.yield()
-        await Task.yield()
+        await drainMainActorTasks()
 
         XCTAssertEqual(reader.readCount, 2)
         let postStopValue = await iterator.next()
@@ -250,18 +292,25 @@ final class BatteryMonitorTests: XCTestCase {
         monitor.start()
         XCTAssertEqual(reader.readCount, 1)
 
+        let powerStateRead = expectation(description: "power state read")
+        powerStateRead.assertForOverFulfill = true
+        reader.onReadCount = { count in
+            if count == 2 {
+                powerStateRead.fulfill()
+            }
+        }
         NotificationCenter.default.post(
             name: .NSProcessInfoPowerStateDidChange,
             object: nil
         )
-        await waitForReadCount(2, reader: reader)
+        await fulfillment(of: [powerStateRead], timeout: 1)
 
         monitor.stop()
         NotificationCenter.default.post(
             name: .NSProcessInfoPowerStateDidChange,
             object: nil
         )
-        try? await Task.sleep(for: .milliseconds(20))
+        await drainMainActorTasks()
 
         XCTAssertEqual(reader.readCount, 2)
     }
@@ -289,7 +338,7 @@ final class BatteryMonitorTests: XCTestCase {
     func testStartAfterStopDoesNotRestart() {
         let reader = FakeBatteryReader(result: makeReading(percentage: 50))
         let harness = IOPSNotificationSourceHarness()
-        defer { harness.releaseRetainedContext() }
+        defer { harness.releaseRetainedContexts() }
         let monitor = BatteryMonitor(
             reader: reader,
             lowPowerModeProvider: { false },
@@ -301,12 +350,35 @@ final class BatteryMonitorTests: XCTestCase {
 
         XCTAssertEqual(harness.factoryInvocationCount, 0)
         XCTAssertEqual(reader.readCount, 0)
+    }
+
+    func testRecoverAfterStopDoesNotReinstallOrEmit() async {
+        let reader = FakeBatteryReader(result: makeReading(percentage: 50))
+        let harness = IOPSNotificationSourceHarness()
+        defer { harness.releaseRetainedContexts() }
+        let monitor = BatteryMonitor(
+            reader: reader,
+            lowPowerModeProvider: { false },
+            iopsRunLoopSourceFactory: harness.factory
+        )
+
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        _ = await iterator.next()
+        monitor.stop()
+
+        monitor.recover()
+
+        XCTAssertEqual(harness.factoryInvocationCount, 1)
         XCTAssertFalse(CFRunLoopContainsSource(CFRunLoopGetMain(), harness.source, .defaultMode))
+        XCTAssertEqual(reader.readCount, 1)
+        let finalValue = await iterator.next()
+        XCTAssertNil(finalValue)
     }
 
     func testDeinitRemovesSourceWhenStopWasNotCalled() {
         let harness = IOPSNotificationSourceHarness()
-        defer { harness.releaseRetainedContext() }
+        defer { harness.releaseRetainedContexts() }
         weak var weakMonitor: BatteryMonitor?
 
         do {
@@ -335,24 +407,15 @@ final class BatteryMonitorTests: XCTestCase {
         )
     }
 
-    private func waitForReadCount(
-        _ expectedCount: Int,
-        reader: FakeBatteryReader
-    ) async {
-        for _ in 0..<100 {
-            if reader.readCount >= expectedCount {
-                return
-            }
-            try? await Task.sleep(for: .milliseconds(1))
-        }
-
-        XCTFail("Timed out waiting for read count \(expectedCount)")
+    private func drainMainActorTasks() async {
+        await Task { @MainActor in }.value
     }
 }
 
 private final class FakeBatteryReader: BatteryReadingProviding {
     var result: BatteryReading?
     private(set) var readCount = 0
+    var onReadCount: ((Int) -> Void)?
 
     init(result: BatteryReading?) {
         self.result = result
@@ -360,6 +423,7 @@ private final class FakeBatteryReader: BatteryReadingProviding {
 
     func read() -> BatteryReading? {
         readCount += 1
+        onReadCount?(readCount)
         return result
     }
 }
@@ -369,7 +433,7 @@ private final class IOPSNotificationSourceHarness {
     private(set) var callback: IOPSNotificationCallback?
     private(set) var contextPointer: UnsafeMutableRawPointer?
     private(set) var factoryInvocationCount = 0
-    private var retainedContext: Unmanaged<AnyObject>?
+    private var retainedContexts: [Unmanaged<AnyObject>] = []
 
     init() {
         var sourceContext = CFRunLoopSourceContext(
@@ -393,9 +457,11 @@ private final class IOPSNotificationSourceHarness {
             self.contextPointer = contextPointer
             self.callback = callback
             if let contextPointer {
-                retainedContext = Unmanaged<AnyObject>
-                    .fromOpaque(contextPointer)
-                    .retain()
+                retainedContexts.append(
+                    Unmanaged<AnyObject>
+                        .fromOpaque(contextPointer)
+                        .retain()
+                )
             }
             return source
         }
@@ -405,8 +471,8 @@ private final class IOPSNotificationSourceHarness {
         callback?(contextPointer)
     }
 
-    func releaseRetainedContext() {
-        retainedContext?.release()
-        retainedContext = nil
+    func releaseRetainedContexts() {
+        retainedContexts.forEach { $0.release() }
+        retainedContexts.removeAll()
     }
 }

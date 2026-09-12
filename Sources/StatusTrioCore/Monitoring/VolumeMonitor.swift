@@ -344,6 +344,7 @@ protocol VolumeEventMonitoring: AnyObject {
         onVolumeChange: @escaping @MainActor @Sendable () -> Void
     )
     func reconcile()
+    func recover()
     func stop()
 }
 
@@ -411,6 +412,15 @@ final class CoreAudioVolumeEventMonitor: VolumeEventMonitoring {
 
         guard let currentDeviceID else { return }
         reconcileDeviceListeners(for: currentDeviceID)
+    }
+
+    func recover() {
+        guard isStarted, !isStopped else { return }
+
+        removeAllListeners()
+        registeredDeviceID = nil
+        deviceNeedsReconciliation = true
+        reconcile()
     }
 
     func stop() {
@@ -646,6 +656,11 @@ final class VolumeMonitor: VolumeMonitoring {
         guard lifecycle != .stopped else { return }
         lifecycle = .stopped
         teardown()
+    }
+
+    func recover() {
+        guard lifecycle == .running else { return }
+        eventMonitor.recover()
     }
 
     func refresh() {

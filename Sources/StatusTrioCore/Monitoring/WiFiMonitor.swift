@@ -184,20 +184,26 @@ private final class PathSequenceGenerator: @unchecked Sendable {
 }
 
 final class NetworkWiFiPathMonitor: @unchecked Sendable, WiFiPathMonitoring {
-    private let monitor = NWPathMonitor()
     private let lock = NSLock()
     private let sequenceGenerator = PathSequenceGenerator()
+    private var monitor: NWPathMonitor?
     private var handler: ((WiFiPathUpdate) -> Void)?
 
     func start(
         queue: DispatchQueue,
         handler: @escaping (WiFiPathUpdate) -> Void
     ) {
+        let monitor = NWPathMonitor()
         lock.withLock {
+            self.monitor = monitor
             self.handler = handler
         }
-        monitor.pathUpdateHandler = { [weak self] path in
-            guard let self else { return }
+        monitor.pathUpdateHandler = { [weak self, weak monitor] path in
+            guard
+                let self,
+                let monitor,
+                self.lock.withLock({ self.monitor === monitor })
+            else { return }
             let update = WiFiPathUpdate(
                 sequence: self.sequenceGenerator.next(),
                 snapshot: WiFiPathSnapshot(
@@ -213,10 +219,13 @@ final class NetworkWiFiPathMonitor: @unchecked Sendable, WiFiPathMonitoring {
     }
 
     func cancel() {
-        monitor.cancel()
-        lock.withLock {
+        let monitor = lock.withLock { () -> NWPathMonitor? in
+            let monitor = self.monitor
+            self.monitor = nil
             handler = nil
+            return monitor
         }
+        monitor?.cancel()
     }
 }
 
@@ -268,6 +277,8 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
 
     private static let monitoredEvents: [CWEventType] = [
         .powerDidChange,
+        .ssidDidChange,
+        .bssidDidChange,
         .linkDidChange,
         .linkQualityDidChange,
         .modeDidChange
@@ -286,6 +297,8 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
     private var latestPathSequence: UInt64?
     private var lastValidStatus: WiFiStatus?
     private var lastValidDate: Date?
+    private var lastRecoveryAttempt: Date?
+    private var isPersistentReadFailure = false
     private var lifecycle = Lifecycle.idle
 
     init(
@@ -318,6 +331,20 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
         lifecycle = .running
 
         eventMonitor.start(delegate: self, events: Self.monitoredEvents)
+        startPathMonitoring()
+        refresh()
+    }
+
+    func recover() {
+        guard lifecycle == .running else { return }
+
+        lastRecoveryAttempt = now()
+        eventMonitor.restart(delegate: self, events: Self.monitoredEvents)
+        pathMonitor.cancel()
+        startPathMonitoring()
+    }
+
+    private func startPathMonitoring() {
         pathMonitor.start(queue: pathQueue) { [weak self] update in
             Task { @MainActor [weak self] in
                 guard let self, self.lifecycle == .running else { return }
@@ -330,7 +357,6 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
                 self.refresh()
             }
         }
-        refresh()
     }
 
     func stop() {
@@ -346,6 +372,9 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
             publish(.unavailable, rssi: nil)
             return
         }
+
+        lastRecoveryAttempt = nil
+        isPersistentReadFailure = false
 
         let sharingActive: Bool
         if reading.powerOn && reading.serviceActive {
@@ -368,19 +397,32 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
 
     nonisolated func clientConnectionInterrupted() {
         Task { @MainActor [weak self] in
-            self?.refresh()
+            guard let self, self.lifecycle == .running else { return }
+            self.refresh()
         }
     }
 
     nonisolated func clientConnectionInvalidated() {
         Task { @MainActor [weak self] in
             guard let self, self.lifecycle == .running else { return }
-            self.eventMonitor.restart(delegate: self, events: Self.monitoredEvents)
+            self.recover()
             self.refresh()
         }
     }
 
     nonisolated func powerStateDidChangeForWiFiInterface(withName interfaceName: String) {
+        Task { @MainActor [weak self] in
+            self?.refresh()
+        }
+    }
+
+    nonisolated func ssidDidChangeForWiFiInterface(withName interfaceName: String) {
+        Task { @MainActor [weak self] in
+            self?.refresh()
+        }
+    }
+
+    nonisolated func bssidDidChangeForWiFiInterface(withName interfaceName: String) {
         Task { @MainActor [weak self] in
             self?.refresh()
         }
@@ -415,6 +457,8 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
         latestPathSequence = nil
         lastValidStatus = nil
         lastValidDate = nil
+        lastRecoveryAttempt = nil
+        isPersistentReadFailure = false
         continuation.finish()
     }
 
@@ -422,13 +466,20 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
         let candidate = WiFiStatus(state: state, rssi: rssi)
 
         if state == .unavailable {
+            let currentDate = now()
             if
                 let lastValidStatus,
                 let lastValidDate,
-                now().timeIntervalSince(lastValidDate) <= staleInterval
+                currentDate.timeIntervalSince(lastValidDate) <= staleInterval
             {
                 continuation.yield(lastValidStatus)
                 return
+            }
+
+            let shouldAttemptRecovery = lastValidStatus != nil || isPersistentReadFailure
+            isPersistentReadFailure = true
+            if shouldAttemptRecovery {
+                recoverIfAllowed(at: currentDate)
             }
 
             lastValidStatus = nil
@@ -437,9 +488,21 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
             return
         }
 
+        isPersistentReadFailure = false
         lastValidStatus = candidate
         lastValidDate = now()
         continuation.yield(candidate)
+    }
+
+    private func recoverIfAllowed(at date: Date) {
+        if
+            let lastRecoveryAttempt,
+            date.timeIntervalSince(lastRecoveryAttempt) < staleInterval
+        {
+            return
+        }
+
+        recover()
     }
 
     private func normalizedRSSI(_ rssi: Int?) -> Int? {

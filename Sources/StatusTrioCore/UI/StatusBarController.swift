@@ -102,6 +102,8 @@ final class StatusBarController: NSObject {
             snapshot: snapshot,
             appearance: button.effectiveAppearance
         )
+        button.setAccessibilityLabel(StatusPresentation.statusItemAccessibilityLabel)
+        button.setAccessibilityValue(StatusPresentation.statusItemAccessibilityValue(snapshot))
     }
 
     private static var appVersion: String {

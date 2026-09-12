@@ -12,7 +12,7 @@ final class StatusMenuBuilderTests: XCTestCase {
 
         XCTAssertEqual(menu.items.map(\.title), [
             "Status Trio 1.0.0",
-            "设置…",
+            "设置… · 即将推出",
             "",
             "退出 Status Trio"
         ])

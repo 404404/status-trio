@@ -2,6 +2,40 @@ import SwiftUI
 
 enum StatusPresentation {
     static let settingsPlaceholder = "设置… · 即将推出"
+    static let statusItemAccessibilityLabel = "Status Trio"
+
+    static func statusItemAccessibilityValue(_ snapshot: StatusSnapshot) -> String {
+        let batterySummary: String
+        if snapshot.battery.isPresent {
+            let percentage = "电池 \(snapshot.battery.percentage)%"
+            let subtitle = batterySubtitle(snapshot.battery)
+            batterySummary = subtitle == "电池供电" ? percentage : "\(percentage)（\(subtitle)）"
+        } else {
+            batterySummary = "无电池设备"
+        }
+
+        let wifiSummary: String
+        switch snapshot.wifi.state {
+        case .connected:
+            wifiSummary = "Wi-Fi \(StatusMappings.wifiBars(rssi: snapshot.wifi.rssi)) 格"
+        case .notAssociated:
+            wifiSummary = "Wi-Fi 未关联"
+        case .off:
+            wifiSummary = "Wi-Fi 关闭"
+        case .noInternet:
+            wifiSummary = "Wi-Fi 无互联网"
+        case .hotspot:
+            wifiSummary = "Wi-Fi iPhone 热点"
+        case .temporary:
+            wifiSummary = "Wi-Fi 临时连接"
+        case .shared:
+            wifiSummary = "Wi-Fi 正在共享"
+        case .unavailable:
+            wifiSummary = "Wi-Fi 不可用"
+        }
+
+        return "\(batterySummary)，\(wifiSummary)，音量 \(volumeValue(snapshot.volume))"
+    }
 
     static func batterySubtitle(_ battery: BatteryStatus) -> String {
         if !battery.isPresent { return "无电池设备" }
@@ -123,6 +157,7 @@ struct StatusPopoverView: View {
             Image(systemName: icon)
                 .frame(width: 24)
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.headline)
                 Text(subtitle)

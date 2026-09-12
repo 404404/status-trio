@@ -116,13 +116,26 @@ final class BatteryMonitor: BatteryMonitoring {
     }
 
     isolated deinit {
-        teardown()
+        teardownNotifications()
         continuation.finish()
     }
 
     func start() {
         guard lifecycle == .idle else { return }
         lifecycle = .running
+
+        installNotifications()
+        refresh()
+    }
+
+    func recover() {
+        guard lifecycle == .running else { return }
+
+        teardownNotifications()
+        installNotifications()
+    }
+
+    private func installNotifications() {
 
         let context = Unmanaged.passRetained(BatteryCallbackContext(monitor: self))
         callbackContext = context
@@ -156,14 +169,12 @@ final class BatteryMonitor: BatteryMonitoring {
                 self?.refresh()
             }
         }
-
-        refresh()
     }
 
     func stop() {
         guard lifecycle != .stopped else { return }
         lifecycle = .stopped
-        teardown()
+        teardownNotifications()
         continuation.finish()
     }
 
@@ -197,7 +208,7 @@ final class BatteryMonitor: BatteryMonitoring {
         continuation.yield(status)
     }
 
-    private func teardown() {
+    private func teardownNotifications() {
         if let runLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .defaultMode)
             self.runLoopSource = nil

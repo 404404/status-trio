@@ -62,6 +62,28 @@ final class StatusPresentationTests: XCTestCase {
         XCTAssertEqual(StatusPresentation.settingsPlaceholder, "设置… · 即将推出")
     }
 
+    func testStatusItemAccessibilitySummaryIncludesAllThreeStatuses() {
+        let snapshot = StatusSnapshot(
+            battery: makeBattery(
+                isCharging: true,
+                isConnectedToPower: true,
+                percentage: 73
+            ),
+            wifi: WiFiStatus(state: .connected, rssi: -55),
+            volume: VolumeStatus(
+                scalar: 0.5,
+                isMuted: false,
+                deviceName: "MacBook Pro Speakers"
+            )
+        )
+
+        XCTAssertEqual(StatusPresentation.statusItemAccessibilityLabel, "Status Trio")
+        XCTAssertEqual(
+            StatusPresentation.statusItemAccessibilityValue(snapshot),
+            "电池 73%（正在充电），Wi-Fi 3 格，音量 50% · 2 格"
+        )
+    }
+
     func testVolumeValueForNilMutedAndNormalStates() {
         XCTAssertEqual(
             StatusPresentation.volumeValue(
@@ -160,10 +182,11 @@ final class StatusPresentationTests: XCTestCase {
         isPresent: Bool = true,
         isCharging: Bool = false,
         isLowPowerMode: Bool = false,
-        isConnectedToPower: Bool = false
+        isConnectedToPower: Bool = false,
+        percentage: Int = 100
     ) -> BatteryStatus {
         BatteryStatus(
-            rawPercentage: 100,
+            rawPercentage: percentage,
             isPresent: isPresent,
             isCharging: isCharging,
             isLowPowerMode: isLowPowerMode,
