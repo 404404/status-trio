@@ -240,7 +240,7 @@ git commit -m "feat: bootstrap Status Trio package and models"
 - Create: `Sources/StatusTrioCore/Models/StatusMappings.swift`
 - Create: `Tests/StatusTrioCoreTests/StatusMappingsTests.swift`
 
-- [ ] **Step 1: Write the failing boundary tests**
+- [x] **Step 1: Write the failing boundary tests**
 
 Create `Tests/StatusTrioCoreTests/StatusMappingsTests.swift`:
 
@@ -305,7 +305,7 @@ final class StatusMappingsTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
@@ -315,7 +315,7 @@ swift test --filter StatusMappingsTests
 
 Expected: compilation fails because `StatusMappings` and `BatteryColorRole` do not exist.
 
-- [ ] **Step 3: Implement the mappings**
+- [x] **Step 3: Implement the mappings**
 
 Create `Sources/StatusTrioCore/Models/StatusMappings.swift`:
 
@@ -365,7 +365,7 @@ enum StatusMappings {
 }
 ```
 
-- [ ] **Step 4: Run the mapping and full test suites**
+- [x] **Step 4: Run the mapping and full test suites**
 
 Run:
 
@@ -376,7 +376,7 @@ swift test
 
 Expected: both commands pass.
 
-- [ ] **Step 5: Commit the mappings**
+- [x] **Step 5: Commit the mappings**
 
 ```bash
 git add Sources/StatusTrioCore/Models/StatusMappings.swift Tests/StatusTrioCoreTests/StatusMappingsTests.swift
