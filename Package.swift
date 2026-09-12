@@ -4,6 +4,9 @@ import PackageDescription
 let package = Package(
     name: "StatusTrio",
     platforms: [.macOS(.v15)],
+    products: [
+        .executable(name: "StatusTrio", targets: ["StatusTrio"])
+    ],
     targets: [
         .target(
             name: "StatusTrioCore",
@@ -17,6 +20,11 @@ let package = Package(
                 .linkedFramework("Network"),
                 .linkedFramework("SystemConfiguration")
             ]
+        ),
+        .executableTarget(
+            name: "StatusTrio",
+            dependencies: ["StatusTrioCore"],
+            path: "Sources/StatusTrio"
         ),
         .testTarget(
             name: "StatusTrioCoreTests",
