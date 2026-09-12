@@ -5234,12 +5234,12 @@ git commit -m "feat: monitor system volume"
 - Modify: `Sources/StatusTrioCore/Monitoring/MonitorProtocols.swift`
 - Modify: `Tests/StatusTrioCoreTests/SystemStatusStoreTests.swift`
 
-- [ ] **Step 1: Write a failing environment test**
+- [x] **Step 1: Write a failing environment test**
 
 Append to `SystemStatusStoreTests`:
 
 ```swift
-    func testEnvironmentStoreUsesInjectedMonitors() async {
+    func testMakeStoreUsesInjectedMonitors() async {
         let battery = FakeBatteryMonitor()
         let store = AppEnvironment.makeStore(
             batteryMonitor: battery,
@@ -5262,17 +5262,17 @@ Append to `SystemStatusStoreTests`:
     }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
 ```bash
-swift test --filter SystemStatusStoreTests/testEnvironmentStoreUsesInjectedMonitors
+bash scripts/test.sh SystemStatusStoreTests
 ```
 
 Expected: compilation fails because `AppEnvironment` does not exist.
 
-- [ ] **Step 3: Implement `AppEnvironment`**
+- [x] **Step 3: Implement `AppEnvironment`**
 
 Create `Sources/StatusTrioCore/App/AppEnvironment.swift`:
 
@@ -5318,7 +5318,7 @@ final class AppEnvironment {
 }
 ```
 
-- [ ] **Step 4: Simplify `AppDelegate` and remove temporary unavailable monitors**
+- [x] **Step 4: Simplify `AppDelegate` and remove temporary unavailable monitors**
 
 Replace `applicationDidFinishLaunching` in `AppDelegate` with:
 
@@ -5347,12 +5347,12 @@ Replace `applicationWillTerminate` with:
 
 Delete `UnavailableBatteryMonitor`, `UnavailableWiFiMonitor`, and `UnavailableVolumeMonitor` from `MonitorProtocols.swift`.
 
-- [ ] **Step 5: Run the full suite, smoke test all live states, and commit**
+- [x] **Step 5: Run the full suite, smoke test all live states, and commit**
 
 Run:
 
 ```bash
-swift test
+bash scripts/test.sh
 swift run StatusTrio
 ```
 
