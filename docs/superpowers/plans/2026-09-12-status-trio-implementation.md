@@ -3569,65 +3569,739 @@ git commit -m "feat: monitor battery state"
 - Create: `Sources/StatusTrioCore/Monitoring/WiFiMonitor.swift`
 - Create: `Tests/StatusTrioCoreTests/WiFiClassifierTests.swift`
 
-- [ ] **Step 1: Write failing classifier tests**
+- [x] **Step 1: Write failing classifier tests**
 
 Create `Tests/StatusTrioCoreTests/WiFiClassifierTests.swift`:
 
 ```swift
+import CoreWLAN
+import Foundation
 import XCTest
 @testable import StatusTrioCore
 
+@MainActor
 final class WiFiClassifierTests: XCTestCase {
-    func testOffAndNotAssociatedWin() {
-        XCTAssertEqual(
-            WiFiClassifier.classify(.init(powerOn: false, serviceActive: false, mode: .none, pathSatisfied: false, pathUsesWiFi: false, pathExpensive: false, sharingActive: false, rssi: 0)),
-            .off
+    func testPowerOffWinsEveryOtherSignal() {
+        let input = makeInput(
+            powerOn: false,
+            serviceActive: true,
+            mode: .station,
+            pathSatisfied: true,
+            pathUsesWiFi: true,
+            pathExpensive: true,
+            sharingActive: true
         )
+
+        XCTAssertEqual(WiFiClassifier.classify(input), .off)
+    }
+
+    func testInactiveServiceWinsSharingAndPathSignals() {
+        let input = makeInput(
+            powerOn: true,
+            serviceActive: false,
+            mode: .ibss,
+            pathSatisfied: true,
+            pathUsesWiFi: true,
+            pathExpensive: true,
+            sharingActive: true
+        )
+
+        XCTAssertEqual(WiFiClassifier.classify(input), .notAssociated)
+    }
+
+    func testSharingWinsTemporaryAndPathSignals() {
+        let input = makeInput(
+            powerOn: true,
+            serviceActive: true,
+            mode: .ibss,
+            pathSatisfied: false,
+            pathUsesWiFi: true,
+            pathExpensive: true,
+            sharingActive: true
+        )
+
+        XCTAssertEqual(WiFiClassifier.classify(input), .shared)
+    }
+
+    func testIBSSWinsExpensiveAndUnsatisfiedPathSignals() {
+        let input = makeInput(
+            powerOn: true,
+            serviceActive: true,
+            mode: .ibss,
+            pathSatisfied: false,
+            pathUsesWiFi: true,
+            pathExpensive: true,
+            sharingActive: false
+        )
+
+        XCTAssertEqual(WiFiClassifier.classify(input), .temporary)
+    }
+
+    func testExpensiveSatisfiedWiFiPathIsHotspot() {
+        let input = makeInput(
+            powerOn: true,
+            serviceActive: true,
+            mode: .station,
+            pathSatisfied: true,
+            pathUsesWiFi: true,
+            pathExpensive: true,
+            sharingActive: false
+        )
+
+        XCTAssertEqual(WiFiClassifier.classify(input), .hotspot)
+    }
+
+    func testExpensiveUnsatisfiedPathIsNoInternet() {
+        let input = makeInput(
+            powerOn: true,
+            serviceActive: true,
+            mode: .station,
+            pathSatisfied: false,
+            pathUsesWiFi: true,
+            pathExpensive: true,
+            sharingActive: false
+        )
+
+        XCTAssertEqual(WiFiClassifier.classify(input), .noInternet)
+    }
+
+    func testUnsatisfiedPathIsNoInternet() {
+        let input = makeInput(
+            powerOn: true,
+            serviceActive: true,
+            mode: .station,
+            pathSatisfied: false,
+            pathUsesWiFi: true,
+            pathExpensive: false,
+            sharingActive: false
+        )
+
+        XCTAssertEqual(WiFiClassifier.classify(input), .noInternet)
+    }
+
+    func testSatisfiedOrdinaryWiFiPathIsConnected() {
+        let input = makeInput(
+            powerOn: true,
+            serviceActive: true,
+            mode: .station,
+            pathSatisfied: true,
+            pathUsesWiFi: true,
+            pathExpensive: false,
+            sharingActive: false
+        )
+
+        XCTAssertEqual(WiFiClassifier.classify(input), .connected)
+    }
+
+    func testUnknownPathFallsBackToConnectedWhenServiceIsActive() {
+        let input = makeInput(
+            powerOn: true,
+            serviceActive: true,
+            mode: .station,
+            pathSatisfied: nil,
+            pathUsesWiFi: true,
+            pathExpensive: true,
+            sharingActive: false
+        )
+
+        XCTAssertEqual(WiFiClassifier.classify(input), .connected)
+    }
+
+    func testUnknownModeFallsBackToConnectedWhenPathIsSatisfied() {
+        let input = makeInput(
+            powerOn: true,
+            serviceActive: true,
+            mode: .unknown,
+            pathSatisfied: true,
+            pathUsesWiFi: true,
+            pathExpensive: false,
+            sharingActive: false
+        )
+
+        XCTAssertEqual(WiFiClassifier.classify(input), .connected)
+    }
+
+    func testUnknownModeFallsBackToNoInternetWhenPathIsUnsatisfied() {
+        let input = makeInput(
+            powerOn: true,
+            serviceActive: true,
+            mode: .unknown,
+            pathSatisfied: false,
+            pathUsesWiFi: true,
+            pathExpensive: false,
+            sharingActive: false
+        )
+
+        XCTAssertEqual(WiFiClassifier.classify(input), .noInternet)
+    }
+
+    func testExpensiveNonWiFiPathDoesNotBecomeHotspot() {
+        let input = makeInput(
+            powerOn: true,
+            serviceActive: true,
+            mode: .station,
+            pathSatisfied: true,
+            pathUsesWiFi: false,
+            pathExpensive: true,
+            sharingActive: false
+        )
+
+        XCTAssertEqual(WiFiClassifier.classify(input), .connected)
+    }
+
+    func testHostAPWithoutConfirmedSharingFallsBackToConnected() {
+        let input = makeInput(
+            powerOn: true,
+            serviceActive: true,
+            mode: .hostAP,
+            pathSatisfied: true,
+            pathUsesWiFi: true,
+            pathExpensive: false,
+            sharingActive: false
+        )
+
+        XCTAssertEqual(WiFiClassifier.classify(input), .connected)
+    }
+
+    func testStartWithDefaultUnknownPathPublishesConnectedForAssociatedWiFi() async {
+        let reader = FakeWiFiSystemReader(result: makeReading(mode: .station, rssi: -52))
+        let sharingDetector = FakeInternetSharingDetector(result: false)
+        let eventMonitor = FakeWiFiEventMonitor()
+        let pathMonitor = FakeWiFiPathMonitor()
+        let monitor = WiFiMonitor(
+            systemReader: reader,
+            sharingDetector: sharingDetector,
+            eventMonitor: eventMonitor,
+            pathMonitor: pathMonitor
+        )
+        var iterator = monitor.updates.makeAsyncIterator()
+
+        monitor.start()
+        let status = await iterator.next()
+
+        XCTAssertEqual(status?.state, .connected)
+        XCTAssertNotEqual(status?.state, .noInternet)
+        monitor.stop()
+    }
+
+    func testRefreshPublishesConnectedReadingWithRSSI() async {
+        let reader = FakeWiFiSystemReader(result: makeReading(mode: .station, rssi: -52))
+        let sharingDetector = FakeInternetSharingDetector(result: false)
+        let monitor = makeMonitor(reader: reader, sharingDetector: sharingDetector)
+        var iterator = monitor.updates.makeAsyncIterator()
+
+        monitor.refresh()
+
+        let status = await iterator.next()
+        XCTAssertEqual(status, WiFiStatus(state: .connected, rssi: -52))
+        XCTAssertEqual(reader.readCount, 1)
+        XCTAssertEqual(sharingDetector.callCount, 1)
+    }
+
+    func testRefreshUsesInternetSharingDetection() async {
+        let reader = FakeWiFiSystemReader(result: makeReading(mode: .station, rssi: -48))
+        let sharingDetector = FakeInternetSharingDetector(result: true)
+        let monitor = makeMonitor(reader: reader, sharingDetector: sharingDetector)
+        var iterator = monitor.updates.makeAsyncIterator()
+
+        monitor.refresh()
+
+        let status = await iterator.next()
+        XCTAssertEqual(status, WiFiStatus(state: .shared, rssi: -48))
+    }
+
+    func testUncertainSharingFallsBackToOrdinaryState() async {
+        let reader = FakeWiFiSystemReader(result: makeReading(mode: .station, rssi: -48))
+        let sharingDetector = FakeInternetSharingDetector(result: nil)
+        let monitor = makeMonitor(reader: reader, sharingDetector: sharingDetector)
+        var iterator = monitor.updates.makeAsyncIterator()
+
+        monitor.refresh()
+
+        let status = await iterator.next()
+        XCTAssertEqual(status, WiFiStatus(state: .connected, rssi: -48))
+    }
+
+    func testRSSINormalization() async {
+        let reader = FakeWiFiSystemReader(result: nil)
+        let monitor = makeMonitor(reader: reader)
+        var iterator = monitor.updates.makeAsyncIterator()
+        let cases: [(input: Int?, expected: Int?)] = [
+            (0, nil),
+            (-71, -71),
+            (nil, nil)
+        ]
+
+        for testCase in cases {
+            reader.result = makeReading(rssi: testCase.input)
+            monitor.refresh()
+            let status = await iterator.next()
+            XCTAssertEqual(status?.rssi, testCase.expected)
+        }
+    }
+
+    func testUnavailableReadingPublishesUnavailable() async {
+        let reader = FakeWiFiSystemReader(result: nil)
+        let sharingDetector = FakeInternetSharingDetector(result: true)
+        let monitor = makeMonitor(reader: reader, sharingDetector: sharingDetector)
+        var iterator = monitor.updates.makeAsyncIterator()
+
+        monitor.refresh()
+
+        let status = await iterator.next()
+        XCTAssertEqual(status, .placeholder)
+        XCTAssertEqual(sharingDetector.callCount, 0)
+    }
+
+    func testUnavailableReadingRetainsLastValidStatusBeforeStaleInterval() async {
+        let clock = ManualWiFiClock(now: Date(timeIntervalSinceReferenceDate: 1_000))
+        let reader = FakeWiFiSystemReader(result: makeReading(mode: .station, rssi: -50))
+        let monitor = makeMonitor(reader: reader, clock: clock)
+        var iterator = monitor.updates.makeAsyncIterator()
+
+        monitor.refresh()
+        let first = await iterator.next()
+
+        reader.result = nil
+        clock.advance(by: 29)
+        monitor.refresh()
+        let retainedBeforeBoundary = await iterator.next()
+
+        clock.advance(by: 1)
+        monitor.refresh()
+        let retainedAtBoundary = await iterator.next()
+
+        XCTAssertEqual(first, WiFiStatus(state: .connected, rssi: -50))
+        XCTAssertEqual(retainedBeforeBoundary, first)
+        XCTAssertEqual(retainedAtBoundary, first)
+    }
+
+    func testUnavailableReadingPublishesUnavailableAfterStaleInterval() async {
+        let clock = ManualWiFiClock(now: Date(timeIntervalSinceReferenceDate: 2_000))
+        let reader = FakeWiFiSystemReader(result: makeReading(mode: .station, rssi: -50))
+        let monitor = makeMonitor(reader: reader, clock: clock)
+        var iterator = monitor.updates.makeAsyncIterator()
+
+        monitor.refresh()
+        _ = await iterator.next()
+
+        reader.result = nil
+        clock.advance(by: 30.001)
+        monitor.refresh()
+
+        let status = await iterator.next()
+        XCTAssertEqual(status, .placeholder)
+    }
+
+    func testCoreWLANModeMapping() {
+        XCTAssertEqual(WiFiInterfaceMode(coreWLANMode: .none), .none)
+        XCTAssertEqual(WiFiInterfaceMode(coreWLANMode: .station), .station)
+        XCTAssertEqual(WiFiInterfaceMode(coreWLANMode: .IBSS), .ibss)
+        XCTAssertEqual(WiFiInterfaceMode(coreWLANMode: .hostAP), .hostAP)
+    }
+
+    func testCoreWLANEventMonitorRestartRecreatesClientAndRegistersEvents() {
+        let firstClient = FakeCoreWLANClient()
+        let secondClient = FakeCoreWLANClient()
+        var clients = [firstClient, secondClient]
+        let eventMonitor = CoreWLANWiFiEventMonitor(
+            clientFactory: { clients.removeFirst() }
+        )
+        let delegate = FakeCWEventDelegate()
+        let events: [CWEventType] = [.powerDidChange, .linkDidChange]
+
+        eventMonitor.start(delegate: delegate, events: events)
+        eventMonitor.restart(delegate: delegate, events: events)
+
+        XCTAssertEqual(firstClient.stopAllCount, 1)
+        XCTAssertNil(firstClient.delegate)
+        XCTAssertTrue(secondClient.delegate === delegate)
+        XCTAssertEqual(secondClient.events, events)
+    }
+
+    func testStartRegistersEventsStartsPathMonitorAndRefreshesImmediately() {
+        let reader = FakeWiFiSystemReader(result: makeReading(mode: .station, rssi: -55))
+        let sharingDetector = FakeInternetSharingDetector(result: false)
+        let eventMonitor = FakeWiFiEventMonitor()
+        let pathMonitor = FakeWiFiPathMonitor()
+        let monitor = makeMonitor(
+            reader: reader,
+            sharingDetector: sharingDetector,
+            eventMonitor: eventMonitor,
+            pathMonitor: pathMonitor
+        )
+
+        monitor.start()
+
+        XCTAssertEqual(reader.readCount, 1)
+        XCTAssertEqual(sharingDetector.callCount, 1)
+        XCTAssertEqual(eventMonitor.startCount, 1)
         XCTAssertEqual(
-            WiFiClassifier.classify(.init(powerOn: true, serviceActive: false, mode: .none, pathSatisfied: false, pathUsesWiFi: false, pathExpensive: false, sharingActive: false, rssi: 0)),
-            .notAssociated
+            eventMonitor.events,
+            [.powerDidChange, .linkDidChange, .linkQualityDidChange, .modeDidChange]
+        )
+        XCTAssertTrue(eventMonitor.delegate === monitor)
+        XCTAssertEqual(pathMonitor.startCount, 1)
+        monitor.stop()
+    }
+
+    func testPathUpdateRefreshesWhileRunning() async {
+        let reader = FakeWiFiSystemReader(result: makeReading(mode: .station, rssi: -55))
+        let pathMonitor = FakeWiFiPathMonitor()
+        let monitor = makeMonitor(reader: reader, pathMonitor: pathMonitor)
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        let initialStatus = await iterator.next()
+
+        pathMonitor.send(
+            WiFiPathSnapshot(satisfied: false, usesWiFi: true, expensive: false)
+        )
+        let updatedStatus = await iterator.next()
+
+        XCTAssertEqual(initialStatus?.state, .connected)
+        XCTAssertEqual(updatedStatus?.state, .noInternet)
+        monitor.stop()
+    }
+
+    func testConnectionInterruptionRefreshesWithoutRestarting() async {
+        let reader = FakeWiFiSystemReader(result: makeReading())
+        let eventMonitor = FakeWiFiEventMonitor()
+        let monitor = makeMonitor(reader: reader, eventMonitor: eventMonitor)
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        _ = await iterator.next()
+
+        eventMonitor.delegate?.clientConnectionInterrupted?()
+        _ = await iterator.next()
+
+        XCTAssertEqual(reader.readCount, 2)
+        XCTAssertEqual(eventMonitor.restartCount, 0)
+        monitor.stop()
+    }
+
+    func testConnectionInvalidationRestartsAndRefreshes() async {
+        let reader = FakeWiFiSystemReader(result: makeReading())
+        let eventMonitor = FakeWiFiEventMonitor()
+        let monitor = makeMonitor(reader: reader, eventMonitor: eventMonitor)
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        _ = await iterator.next()
+
+        eventMonitor.delegate?.clientConnectionInvalidated?()
+        _ = await iterator.next()
+
+        XCTAssertEqual(reader.readCount, 2)
+        XCTAssertEqual(eventMonitor.restartCount, 1)
+        XCTAssertEqual(eventMonitor.restartEvents, eventMonitor.events)
+        XCTAssertTrue(eventMonitor.delegate === monitor)
+        monitor.stop()
+    }
+
+    func testDeinitWithoutStopTearsDownAndFinishesUpdates() async {
+        let eventMonitor = FakeWiFiEventMonitor()
+        let pathMonitor = FakeWiFiPathMonitor()
+        var monitor: WiFiMonitor? = makeMonitor(
+            reader: FakeWiFiSystemReader(result: makeReading()),
+            eventMonitor: eventMonitor,
+            pathMonitor: pathMonitor
+        )
+        weak let weakMonitor = monitor
+        monitor?.start()
+        var iterator = monitor?.updates.makeAsyncIterator()
+        _ = await iterator?.next()
+
+        monitor = nil
+
+        XCTAssertNil(weakMonitor)
+        XCTAssertEqual(eventMonitor.stopCount, 1)
+        XCTAssertEqual(pathMonitor.cancelCount, 1)
+        let finalStatus = await iterator?.next()
+        XCTAssertNil(finalStatus)
+    }
+
+    func testNewerPathSequenceWinsOutOfOrderDelivery() async {
+        let reader = FakeWiFiSystemReader(result: makeReading())
+        let pathMonitor = FakeWiFiPathMonitor()
+        let monitor = makeMonitor(reader: reader, pathMonitor: pathMonitor)
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        _ = await iterator.next()
+
+        let older = pathMonitor.makeUpdate(
+            WiFiPathSnapshot(satisfied: false, usesWiFi: true, expensive: false)
+        )
+        let newer = pathMonitor.makeUpdate(
+            WiFiPathSnapshot(satisfied: true, usesWiFi: true, expensive: true)
+        )
+        pathMonitor.deliver(newer)
+        pathMonitor.deliver(older)
+
+        let status = await iterator.next()
+        XCTAssertEqual(status?.state, .hotspot)
+        monitor.stop()
+    }
+
+    func testStartIsOneShot() {
+        let reader = FakeWiFiSystemReader(result: makeReading())
+        let eventMonitor = FakeWiFiEventMonitor()
+        let pathMonitor = FakeWiFiPathMonitor()
+        let monitor = makeMonitor(
+            reader: reader,
+            eventMonitor: eventMonitor,
+            pathMonitor: pathMonitor
+        )
+
+        monitor.start()
+        monitor.start()
+
+        XCTAssertEqual(reader.readCount, 1)
+        XCTAssertEqual(eventMonitor.startCount, 1)
+        XCTAssertEqual(pathMonitor.startCount, 1)
+        monitor.stop()
+    }
+
+    func testStopIsIdempotentAndFinishesUpdates() async {
+        let eventMonitor = FakeWiFiEventMonitor()
+        let pathMonitor = FakeWiFiPathMonitor()
+        let monitor = makeMonitor(
+            reader: FakeWiFiSystemReader(result: makeReading()),
+            eventMonitor: eventMonitor,
+            pathMonitor: pathMonitor
+        )
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        _ = await iterator.next()
+
+        monitor.stop()
+        monitor.stop()
+
+        XCTAssertEqual(eventMonitor.stopCount, 1)
+        XCTAssertEqual(pathMonitor.cancelCount, 1)
+        let finalStatus = await iterator.next()
+        XCTAssertNil(finalStatus)
+    }
+
+    func testStartAfterStopIsNoOp() {
+        let reader = FakeWiFiSystemReader(result: makeReading())
+        let eventMonitor = FakeWiFiEventMonitor()
+        let pathMonitor = FakeWiFiPathMonitor()
+        let monitor = makeMonitor(
+            reader: reader,
+            eventMonitor: eventMonitor,
+            pathMonitor: pathMonitor
+        )
+        monitor.start()
+        monitor.stop()
+
+        monitor.start()
+
+        XCTAssertEqual(reader.readCount, 1)
+        XCTAssertEqual(eventMonitor.startCount, 1)
+        XCTAssertEqual(pathMonitor.startCount, 1)
+    }
+
+    func testStoppedRefreshDoesNotReadOrPublish() async {
+        let reader = FakeWiFiSystemReader(result: makeReading())
+        let sharingDetector = FakeInternetSharingDetector(result: false)
+        let monitor = makeMonitor(reader: reader, sharingDetector: sharingDetector)
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        _ = await iterator.next()
+        monitor.stop()
+
+        monitor.refresh()
+
+        XCTAssertEqual(reader.readCount, 1)
+        XCTAssertEqual(sharingDetector.callCount, 1)
+        let finalStatus = await iterator.next()
+        XCTAssertNil(finalStatus)
+    }
+
+    private func makeInput(
+        powerOn: Bool = true,
+        serviceActive: Bool = true,
+        mode: WiFiInterfaceMode = .station,
+        pathSatisfied: Bool? = true,
+        pathUsesWiFi: Bool = true,
+        pathExpensive: Bool = false,
+        sharingActive: Bool = false
+    ) -> WiFiClassificationInput {
+        WiFiClassificationInput(
+            powerOn: powerOn,
+            serviceActive: serviceActive,
+            mode: mode,
+            pathSatisfied: pathSatisfied,
+            pathUsesWiFi: pathUsesWiFi,
+            pathExpensive: pathExpensive,
+            sharingActive: sharingActive
         )
     }
 
-    func testSpecialStates() {
-        XCTAssertEqual(
-            WiFiClassifier.classify(.init(powerOn: true, serviceActive: true, mode: .station, pathSatisfied: true, pathUsesWiFi: true, pathExpensive: false, sharingActive: true, rssi: -50)),
-            .shared
-        )
-        XCTAssertEqual(
-            WiFiClassifier.classify(.init(powerOn: true, serviceActive: true, mode: .ibss, pathSatisfied: true, pathUsesWiFi: true, pathExpensive: false, sharingActive: false, rssi: -50)),
-            .temporary
-        )
-        XCTAssertEqual(
-            WiFiClassifier.classify(.init(powerOn: true, serviceActive: true, mode: .station, pathSatisfied: true, pathUsesWiFi: true, pathExpensive: true, sharingActive: false, rssi: -50)),
-            .hotspot
+    private func makeReading(
+        mode: WiFiInterfaceMode = .station,
+        rssi: Int? = -50
+    ) -> WiFiSystemReading {
+        WiFiSystemReading(
+            powerOn: true,
+            serviceActive: true,
+            mode: mode,
+            rssi: rssi
         )
     }
 
-    func testNoInternetAndConnected() {
-        XCTAssertEqual(
-            WiFiClassifier.classify(.init(powerOn: true, serviceActive: true, mode: .station, pathSatisfied: false, pathUsesWiFi: true, pathExpensive: false, sharingActive: false, rssi: -50)),
-            .noInternet
+    private func makeMonitor(
+        reader: FakeWiFiSystemReader,
+        sharingDetector: FakeInternetSharingDetector = FakeInternetSharingDetector(result: false),
+        eventMonitor: FakeWiFiEventMonitor = FakeWiFiEventMonitor(),
+        pathMonitor: FakeWiFiPathMonitor = FakeWiFiPathMonitor(),
+        staleInterval: TimeInterval = 30,
+        initialPath: WiFiPathSnapshot? = nil,
+        clock: ManualWiFiClock = ManualWiFiClock()
+    ) -> WiFiMonitor {
+        WiFiMonitor(
+            systemReader: reader,
+            sharingDetector: sharingDetector,
+            eventMonitor: eventMonitor,
+            pathMonitor: pathMonitor,
+            staleInterval: staleInterval,
+            initialPath: initialPath,
+            now: { clock.now }
         )
-        XCTAssertEqual(
-            WiFiClassifier.classify(.init(powerOn: true, serviceActive: true, mode: .station, pathSatisfied: true, pathUsesWiFi: true, pathExpensive: false, sharingActive: false, rssi: -50)),
-            .connected
-        )
+    }
+}
+
+private final class FakeCoreWLANClient: CWWiFiClient {
+    var events: [CWEventType] = []
+    var stopAllCount = 0
+    weak var storedDelegate: AnyObject?
+
+    override var delegate: AnyObject? {
+        get { storedDelegate }
+        set { storedDelegate = newValue }
+    }
+
+    override func startMonitoringEvent(with event: CWEventType) throws {
+        events.append(event)
+    }
+
+    override func stopMonitoringAllEvents() throws {
+        stopAllCount += 1
+    }
+}
+
+private final class FakeCWEventDelegate: NSObject, CWEventDelegate {}
+
+private final class FakeWiFiSystemReader: WiFiSystemReadingProviding {
+    var result: WiFiSystemReading?
+    private(set) var readCount = 0
+
+    init(result: WiFiSystemReading?) {
+        self.result = result
+    }
+
+    func read() -> WiFiSystemReading? {
+        readCount += 1
+        return result
+    }
+}
+
+private final class FakeInternetSharingDetector: InternetSharingDetecting {
+    var result: Bool?
+    private(set) var callCount = 0
+
+    init(result: Bool?) {
+        self.result = result
+    }
+
+    func isActive() -> Bool? {
+        callCount += 1
+        return result
+    }
+}
+
+private final class FakeWiFiEventMonitor: WiFiEventMonitoring {
+    private(set) var startCount = 0
+    private(set) var restartCount = 0
+    private(set) var stopCount = 0
+    private(set) var events: [CWEventType] = []
+    private(set) var restartEvents: [CWEventType] = []
+    weak var delegate: (any CWEventDelegate)?
+
+    func start(delegate: any CWEventDelegate, events: [CWEventType]) {
+        startCount += 1
+        self.delegate = delegate
+        self.events = events
+    }
+
+    func restart(delegate: any CWEventDelegate, events: [CWEventType]) {
+        restartCount += 1
+        self.delegate = delegate
+        restartEvents = events
+    }
+
+    func stop() {
+        stopCount += 1
+        delegate = nil
+    }
+}
+
+private final class FakeWiFiPathMonitor: WiFiPathMonitoring {
+    private(set) var startCount = 0
+    private(set) var cancelCount = 0
+    private var nextSequence: UInt64 = 0
+    private var handler: ((WiFiPathUpdate) -> Void)?
+
+    func start(
+        queue: DispatchQueue,
+        handler: @escaping (WiFiPathUpdate) -> Void
+    ) {
+        startCount += 1
+        self.handler = handler
+    }
+
+    func cancel() {
+        cancelCount += 1
+        handler = nil
+    }
+
+    func send(_ snapshot: WiFiPathSnapshot) {
+        deliver(makeUpdate(snapshot))
+    }
+
+    func makeUpdate(_ snapshot: WiFiPathSnapshot) -> WiFiPathUpdate {
+        nextSequence += 1
+        return WiFiPathUpdate(sequence: nextSequence, snapshot: snapshot)
+    }
+
+    func deliver(_ update: WiFiPathUpdate) {
+        handler?(update)
+    }
+}
+
+private final class ManualWiFiClock {
+    private(set) var now: Date
+
+    init(now: Date = Date(timeIntervalSinceReferenceDate: 0)) {
+        self.now = now
+    }
+
+    func advance(by interval: TimeInterval) {
+        now = now.addingTimeInterval(interval)
     }
 }
 ```
 
-- [ ] **Step 2: Run the classifier test to verify it fails**
+- [x] **Step 2: Run the classifier test to verify it fails**
 
 Run:
 
 ```bash
-swift test --filter WiFiClassifierTests
+bash scripts/test.sh WiFiClassifierTests
 ```
 
 Expected: compilation fails because `WiFiClassifier` and its input type do not exist.
 
-- [ ] **Step 3: Implement the pure classifier**
+- [x] **Step 3: Implement the pure classifier**
 
 Create `Sources/StatusTrioCore/Monitoring/WiFiMonitor.swift` and begin with:
 
@@ -3636,16 +4310,44 @@ import CoreWLAN
 import Foundation
 import Network
 import SystemConfiguration
+import os
 
-struct WiFiClassificationInput: Equatable {
+private let wifiMonitorLogger = Logger(
+    subsystem: "StatusTrio",
+    category: "WiFiMonitor"
+)
+
+enum WiFiInterfaceMode: Equatable, Sendable {
+    case none
+    case station
+    case ibss
+    case hostAP
+    case unknown
+
+    init(coreWLANMode: CWInterfaceMode) {
+        switch coreWLANMode {
+        case .none:
+            self = .none
+        case .station:
+            self = .station
+        case .IBSS:
+            self = .ibss
+        case .hostAP:
+            self = .hostAP
+        @unknown default:
+            self = .unknown
+        }
+    }
+}
+
+struct WiFiClassificationInput: Equatable, Sendable {
     var powerOn: Bool
     var serviceActive: Bool
-    var mode: CWInterfaceMode
-    var pathSatisfied: Bool
+    var mode: WiFiInterfaceMode
+    var pathSatisfied: Bool?
     var pathUsesWiFi: Bool
     var pathExpensive: Bool
     var sharingActive: Bool
-    var rssi: Int
 }
 
 enum WiFiClassifier {
@@ -3654,14 +4356,408 @@ enum WiFiClassifier {
         if !input.serviceActive { return .notAssociated }
         if input.sharingActive { return .shared }
         if input.mode == .ibss { return .temporary }
-        if input.pathUsesWiFi && input.pathExpensive { return .hotspot }
-        if !input.pathSatisfied { return .noInternet }
+
+        if let pathSatisfied = input.pathSatisfied {
+            if pathSatisfied && input.pathUsesWiFi && input.pathExpensive {
+                return .hotspot
+            }
+            if !pathSatisfied {
+                return .noInternet
+            }
+        }
+
         return .connected
+    }
+}
+
+struct WiFiSystemReading: Equatable, Sendable {
+    var powerOn: Bool
+    var serviceActive: Bool
+    var mode: WiFiInterfaceMode
+    var rssi: Int?
+}
+
+protocol WiFiSystemReadingProviding: AnyObject {
+    func read() -> WiFiSystemReading?
+}
+
+protocol InternetSharingDetecting: AnyObject {
+    func isActive() -> Bool?
+}
+
+protocol WiFiEventMonitoring: AnyObject {
+    func start(delegate: any CWEventDelegate, events: [CWEventType])
+    func restart(delegate: any CWEventDelegate, events: [CWEventType])
+    func stop()
+}
+
+struct WiFiPathSnapshot: Equatable, Sendable {
+    var satisfied = false
+    var usesWiFi = false
+    var expensive = false
+}
+
+struct WiFiPathUpdate: Equatable, Sendable {
+    let sequence: UInt64
+    let snapshot: WiFiPathSnapshot
+}
+
+protocol WiFiPathMonitoring: AnyObject {
+    func start(
+        queue: DispatchQueue,
+        handler: @escaping (WiFiPathUpdate) -> Void
+    )
+    func cancel()
+}
+
+typealias WiFiClientFactory = () -> CWWiFiClient
+
+final class CoreWLANWiFiSystemReader: WiFiSystemReadingProviding {
+    private let client: CWWiFiClient
+
+    init(client: CWWiFiClient = CWWiFiClient.shared()) {
+        self.client = client
+    }
+
+    func read() -> WiFiSystemReading? {
+        guard let interface = client.interface() else { return nil }
+
+        return WiFiSystemReading(
+            powerOn: interface.powerOn(),
+            serviceActive: interface.serviceActive(),
+            mode: WiFiInterfaceMode(coreWLANMode: interface.interfaceMode()),
+            rssi: interface.rssiValue()
+        )
+    }
+}
+
+final class CoreWLANWiFiEventMonitor: WiFiEventMonitoring {
+    private let clientFactory: WiFiClientFactory
+    private var client: CWWiFiClient
+
+    init(clientFactory: @escaping WiFiClientFactory = { CWWiFiClient() }) {
+        self.clientFactory = clientFactory
+        self.client = clientFactory()
+    }
+
+    func start(delegate: any CWEventDelegate, events: [CWEventType]) {
+        configure(delegate: delegate, events: events)
+    }
+
+    func restart(delegate: any CWEventDelegate, events: [CWEventType]) {
+        clear()
+        client = clientFactory()
+        configure(delegate: delegate, events: events)
+    }
+
+    func stop() {
+        clear()
+    }
+
+    private func configure(delegate: any CWEventDelegate, events: [CWEventType]) {
+        client.delegate = delegate
+        for event in events {
+            do {
+                try client.startMonitoringEvent(with: event)
+            } catch {
+                wifiMonitorLogger.error(
+                    "Failed to register CoreWLAN event \(event.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+    }
+
+    private func clear() {
+        client.delegate = nil
+        do {
+            try client.stopMonitoringAllEvents()
+        } catch {
+            wifiMonitorLogger.error(
+                "Failed to clear CoreWLAN events: \(error.localizedDescription, privacy: .public)"
+            )
+        }
+    }
+}
+
+private final class PathSequenceGenerator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: UInt64 = 0
+
+    func next() -> UInt64 {
+        lock.withLock {
+            value &+= 1
+            return value
+        }
+    }
+}
+
+final class NetworkWiFiPathMonitor: @unchecked Sendable, WiFiPathMonitoring {
+    private let monitor = NWPathMonitor()
+    private let lock = NSLock()
+    private let sequenceGenerator = PathSequenceGenerator()
+    private var handler: ((WiFiPathUpdate) -> Void)?
+
+    func start(
+        queue: DispatchQueue,
+        handler: @escaping (WiFiPathUpdate) -> Void
+    ) {
+        lock.withLock {
+            self.handler = handler
+        }
+        monitor.pathUpdateHandler = { [weak self] path in
+            guard let self else { return }
+            let update = WiFiPathUpdate(
+                sequence: self.sequenceGenerator.next(),
+                snapshot: WiFiPathSnapshot(
+                    satisfied: path.status == .satisfied,
+                    usesWiFi: path.usesInterfaceType(.wifi),
+                    expensive: path.isExpensive
+                )
+            )
+            let handler = self.lock.withLock { self.handler }
+            handler?(update)
+        }
+        monitor.start(queue: queue)
+    }
+
+    func cancel() {
+        monitor.cancel()
+        lock.withLock {
+            handler = nil
+        }
+    }
+}
+
+/// `com.apple.nat` is an undocumented dynamic-store key used only as a
+/// best-effort signal. Missing or unreadable data returns `nil`, which means
+/// "not definitively sharing" and never assumes sharing is active.
+final class SystemInternetSharingDetector: InternetSharingDetecting {
+    func isActive() -> Bool? {
+        guard
+            let store = SCDynamicStoreCreate(
+                nil,
+                "StatusTrio" as CFString,
+                nil,
+                nil
+            ),
+            let value = SCDynamicStoreCopyValue(
+                store,
+                "com.apple.nat" as CFString
+            ) as? [String: Any],
+            let nat = value["NAT"] as? [String: Any]
+        else { return nil }
+
+        return booleanValue(nat["Enabled"])
+    }
+
+    private func booleanValue(_ value: Any?) -> Bool? {
+        if let value = value as? Bool {
+            return value
+        }
+        if let value = value as? NSNumber {
+            return value.boolValue
+        }
+        if let value = value as? Int {
+            return value == 1
+        }
+        return nil
+    }
+}
+
+@MainActor
+final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
+    private enum Lifecycle {
+        case idle
+        case running
+        case stopped
+    }
+
+    let updates: AsyncStream<WiFiStatus>
+
+    private static let monitoredEvents: [CWEventType] = [
+        .powerDidChange,
+        .linkDidChange,
+        .linkQualityDidChange,
+        .modeDidChange
+    ]
+
+    private let continuation: AsyncStream<WiFiStatus>.Continuation
+    private let systemReader: any WiFiSystemReadingProviding
+    private let sharingDetector: any InternetSharingDetecting
+    private let eventMonitor: any WiFiEventMonitoring
+    private let pathMonitor: any WiFiPathMonitoring
+    private let pathQueue = DispatchQueue(label: "StatusTrio.WiFiPath")
+    private let staleInterval: TimeInterval
+    private let now: () -> Date
+
+    private var latestPath: WiFiPathSnapshot?
+    private var latestPathSequence: UInt64?
+    private var lastValidStatus: WiFiStatus?
+    private var lastValidDate: Date?
+    private var lifecycle = Lifecycle.idle
+
+    init(
+        systemReader: any WiFiSystemReadingProviding = CoreWLANWiFiSystemReader(),
+        sharingDetector: any InternetSharingDetecting = SystemInternetSharingDetector(),
+        eventMonitor: any WiFiEventMonitoring = CoreWLANWiFiEventMonitor(),
+        pathMonitor: any WiFiPathMonitoring = NetworkWiFiPathMonitor(),
+        staleInterval: TimeInterval = 30,
+        initialPath: WiFiPathSnapshot? = nil,
+        now: @escaping () -> Date = Date.init
+    ) {
+        self.systemReader = systemReader
+        self.sharingDetector = sharingDetector
+        self.eventMonitor = eventMonitor
+        self.pathMonitor = pathMonitor
+        self.staleInterval = staleInterval
+        self.latestPath = initialPath
+        self.now = now
+        (updates, continuation) = AsyncStream.makeStream()
+        super.init()
+    }
+
+    isolated deinit {
+        guard lifecycle != .stopped else { return }
+        teardown()
+    }
+
+    func start() {
+        guard lifecycle == .idle else { return }
+        lifecycle = .running
+
+        eventMonitor.start(delegate: self, events: Self.monitoredEvents)
+        pathMonitor.start(queue: pathQueue) { [weak self] update in
+            Task { @MainActor [weak self] in
+                guard let self, self.lifecycle == .running else { return }
+                if let latestPathSequence = self.latestPathSequence,
+                   update.sequence <= latestPathSequence {
+                    return
+                }
+                self.latestPathSequence = update.sequence
+                self.latestPath = update.snapshot
+                self.refresh()
+            }
+        }
+        refresh()
+    }
+
+    func stop() {
+        guard lifecycle != .stopped else { return }
+        lifecycle = .stopped
+        teardown()
+    }
+
+    func refresh() {
+        guard lifecycle != .stopped else { return }
+
+        guard let reading = systemReader.read() else {
+            publish(.unavailable, rssi: nil)
+            return
+        }
+
+        let sharingActive: Bool
+        if reading.powerOn && reading.serviceActive {
+            sharingActive = sharingDetector.isActive() == true
+        } else {
+            sharingActive = false
+        }
+
+        let input = WiFiClassificationInput(
+            powerOn: reading.powerOn,
+            serviceActive: reading.serviceActive,
+            mode: reading.mode,
+            pathSatisfied: latestPath?.satisfied,
+            pathUsesWiFi: latestPath?.usesWiFi ?? false,
+            pathExpensive: latestPath?.expensive ?? false,
+            sharingActive: sharingActive
+        )
+        publish(WiFiClassifier.classify(input), rssi: normalizedRSSI(reading.rssi))
+    }
+
+    nonisolated func clientConnectionInterrupted() {
+        Task { @MainActor [weak self] in
+            self?.refresh()
+        }
+    }
+
+    nonisolated func clientConnectionInvalidated() {
+        Task { @MainActor [weak self] in
+            guard let self, self.lifecycle == .running else { return }
+            self.eventMonitor.restart(delegate: self, events: Self.monitoredEvents)
+            self.refresh()
+        }
+    }
+
+    nonisolated func powerStateDidChangeForWiFiInterface(withName interfaceName: String) {
+        Task { @MainActor [weak self] in
+            self?.refresh()
+        }
+    }
+
+    nonisolated func linkDidChangeForWiFiInterface(withName interfaceName: String) {
+        Task { @MainActor [weak self] in
+            self?.refresh()
+        }
+    }
+
+    nonisolated func linkQualityDidChangeForWiFiInterface(
+        withName interfaceName: String,
+        rssi: Int,
+        transmitRate: Double
+    ) {
+        Task { @MainActor [weak self] in
+            self?.refresh()
+        }
+    }
+
+    nonisolated func modeDidChangeForWiFiInterface(withName interfaceName: String) {
+        Task { @MainActor [weak self] in
+            self?.refresh()
+        }
+    }
+
+    private func teardown() {
+        eventMonitor.stop()
+        pathMonitor.cancel()
+        latestPath = nil
+        latestPathSequence = nil
+        lastValidStatus = nil
+        lastValidDate = nil
+        continuation.finish()
+    }
+
+    private func publish(_ state: WiFiState, rssi: Int?) {
+        let candidate = WiFiStatus(state: state, rssi: rssi)
+
+        if state == .unavailable {
+            if
+                let lastValidStatus,
+                let lastValidDate,
+                now().timeIntervalSince(lastValidDate) <= staleInterval
+            {
+                continuation.yield(lastValidStatus)
+                return
+            }
+
+            lastValidStatus = nil
+            lastValidDate = nil
+            continuation.yield(candidate)
+            return
+        }
+
+        lastValidStatus = candidate
+        lastValidDate = now()
+        continuation.yield(candidate)
+    }
+
+    private func normalizedRSSI(_ rssi: Int?) -> Int? {
+        guard let rssi, rssi < 0 else { return nil }
+        return rssi
     }
 }
 ```
 
-- [ ] **Step 4: Implement the live monitor**
+- [x] **Step 4: Implement the live monitor**
 
 Append to `WiFiMonitor.swift`:
 
@@ -3809,13 +4905,13 @@ rg -n "startMonitoringEvent|linkQualityDidChange" "$(xcrun --show-sdk-path)/Syst
 
 Then adjust only the Objective-C selector spelling; the classifier and state model remain unchanged.
 
-- [ ] **Step 5: Run tests, smoke test, and commit**
+- [x] **Step 5: Run tests, smoke test, and commit**
 
 Run:
 
 ```bash
-swift test --filter WiFiClassifierTests
-swift test
+bash scripts/test.sh WiFiClassifierTests
+bash scripts/test.sh
 swift run StatusTrio
 ```
 
