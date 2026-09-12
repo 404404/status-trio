@@ -5,15 +5,15 @@ import XCTest
 final class StatusIconGeometryTests: XCTestCase {
     private let wifiOuterBounds = CGRect(
         x: 38.496939589591584,
-        y: 44.56689658567961,
-        width: 42.006120820816804,
-        height: 10.932413657281575
+        y: 47.3,
+        width: 42.00612082081681,
+        height: 8.19931024296119
     )
     private let wifiMiddleBounds = CGRect(
         x: 47.00158115911029,
-        y: 58.7698769103291,
+        y: 60.39,
         width: 24.996837681779425,
-        height: 6.480492358683611
+        height: 4.860369269012708
     )
 
     func testBatteryPathsStayInsideCanvas() {
@@ -31,18 +31,18 @@ final class StatusIconGeometryTests: XCTestCase {
         assertPathBounds(
             track,
             equals: CGRect(
-                x: 0.7192875296163166,
-                y: 2.7064401474710493,
-                width: 112.78071247038369,
-                height: 85.54355985252894
+                x: 7.992512326287086,
+                y: 9.979664944141817,
+                width: 103.00748767371292,
+                height: 78.27033505585817
             )
         )
         assertPathBounds(
             fill,
             equals: CGRect(
-                x: 0.7192875296163166,
+                x: 7.992512326287086,
                 y: 9.987152617854733,
-                width: 58.780712470383676,
+                width: 51.50748767371291,
                 height: 78.26284738214525
             )
         )
@@ -85,7 +85,7 @@ final class StatusIconGeometryTests: XCTestCase {
     func testWiFiDotBounds() {
         assertPathBounds(
             StatusIconGeometry.wifiDot(),
-            equals: CGRect(x: 52.3, y: 69.9, width: 14.4, height: 11.05)
+            equals: CGRect(x: 52.35, y: 69.9, width: 14.3, height: 11.05)
         )
     }
 
@@ -141,7 +141,7 @@ final class StatusIconGeometryTests: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        assertBounds(path.boundingBox, equals: expected, accuracy: accuracy, file: file, line: line)
+        assertBounds(path.boundingBoxOfPath, equals: expected, accuracy: accuracy, file: file, line: line)
     }
 
     private func assertBounds(
