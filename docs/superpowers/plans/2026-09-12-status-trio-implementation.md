@@ -2004,14 +2004,15 @@ git commit -m "feat: render three-in-one menu bar icon"
 - Modify: `Tests/StatusTrioCoreTests/StatusIconGeometryTests.swift`
 - Modify: `Tests/StatusTrioCoreTests/StatusIconRendererTests.swift`
 
-- [ ] **Step 1: Write failing overlay tests**
+- [x] **Step 1: Write failing overlay tests**
 
 Append to `StatusIconGeometryTests`:
 
 ```swift
     func testSpecialWiFiOverlaysExist() {
         XCTAssertFalse(StatusIconGeometry.temporaryWedge().isEmpty)
-        XCTAssertFalse(StatusIconGeometry.temporaryScreenCutout().isEmpty)
+        XCTAssertFalse(StatusIconGeometry.temporaryScreenOutline().isEmpty)
+        XCTAssertFalse(StatusIconGeometry.temporaryScreenStand().isEmpty)
         XCTAssertFalse(StatusIconGeometry.sharedWedge().isEmpty)
         XCTAssertFalse(StatusIconGeometry.sharedArrowCutout().isEmpty)
     }
@@ -2027,29 +2028,30 @@ Append to `StatusIconRendererTests`:
                 wifi: WiFiStatus(state: state, rssi: -50),
                 volume: .placeholder
             )
-            let image = StatusIconRenderer.render(
+            let image = try XCTUnwrap(StatusIconRenderer.render(
                 snapshot: snapshot,
                 size: 20,
                 scale: 2,
                 foreground: CGColor(gray: 1, alpha: 1)
-            )
-            XCTAssertGreaterThan(image.width, 0)
+            ))
+            XCTAssertEqual(image.width, 40)
+            XCTAssertEqual(image.height, 40)
         }
     }
 ```
 
-- [ ] **Step 2: Run the overlay tests to verify they fail**
+- [x] **Step 2: Run the overlay tests to verify they fail**
 
 Run:
 
 ```bash
-swift test --filter StatusIconGeometryTests/testSpecialWiFiOverlaysExist
-swift test --filter StatusIconRendererTests/testTemporaryAndSharedStatesProducePixels
+bash scripts/test.sh StatusIconGeometryTests
+bash scripts/test.sh StatusIconRendererTests
 ```
 
 Expected: compilation fails because the overlay geometry functions do not exist.
 
-- [ ] **Step 3: Add the overlay paths**
+- [x] **Step 3: Add the overlay paths**
 
 Add to `StatusIconGeometry`:
 
@@ -2069,13 +2071,18 @@ Add to `StatusIconGeometry`:
         return path
     }
 
-    static func temporaryScreenCutout() -> CGPath {
+    static func temporaryScreenOutline() -> CGPath {
         let path = CGMutablePath()
         path.addRoundedRect(
             in: CGRect(x: 50.5, y: 53.5, width: 18, height: 12),
             cornerWidth: 2.5,
             cornerHeight: 2.5
         )
+        return path
+    }
+
+    static func temporaryScreenStand() -> CGPath {
+        let path = CGMutablePath()
         path.move(to: CGPoint(x: 57.5, y: 65.5))
         path.addLine(to: CGPoint(x: 61.5, y: 65.5))
         path.addLine(to: CGPoint(x: 61.5, y: 67.5))
@@ -2106,43 +2113,44 @@ Add to `StatusIconGeometry`:
     }
 ```
 
-- [ ] **Step 4: Compose the transparent cutouts in the renderer**
+- [x] **Step 4: Compose the transparent cutouts in the renderer**
 
 Replace the `.temporary, .shared` branch in `drawWiFi` with:
 
 ```swift
         case .temporary:
             context.setFillColor(foreground)
-            context.addPath(StatusIconGeometry.temporaryWedge())
-            context.fillPath()
-            context.saveGState()
-            context.setBlendMode(.clear)
-            context.addPath(StatusIconGeometry.temporaryScreenCutout())
-            context.fillPath()
-            context.restoreGState()
             context.setStrokeColor(foreground)
             context.setLineWidth(7)
             context.addPath(StatusIconGeometry.temporaryWedge())
+            context.drawPath(using: .fillStroke)
+
+            context.saveGState()
+            context.setBlendMode(.clear)
+            context.setLineWidth(2.5)
+            context.addPath(StatusIconGeometry.temporaryScreenOutline())
             context.strokePath()
+            context.addPath(StatusIconGeometry.temporaryScreenStand())
+            context.fillPath()
+            context.restoreGState()
         case .shared:
             context.setFillColor(foreground)
+            context.setStrokeColor(foreground)
+            context.setLineWidth(7)
             context.addPath(StatusIconGeometry.sharedWedge())
-            context.fillPath()
+            context.drawPath(using: .fillStroke)
+
             context.saveGState()
             context.setBlendMode(.clear)
             context.addPath(StatusIconGeometry.sharedArrowCutout())
             context.fillPath()
             context.restoreGState()
-            context.setStrokeColor(foreground)
-            context.setLineWidth(7)
-            context.addPath(StatusIconGeometry.sharedWedge())
-            context.strokePath()
 ```
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 ```bash
-swift test
+bash scripts/test.sh
 git add Sources/StatusTrioCore/UI/Icon/StatusIconGeometry.swift Sources/StatusTrioCore/UI/Icon/StatusIconRenderer.swift Tests/StatusTrioCoreTests/StatusIconGeometryTests.swift Tests/StatusTrioCoreTests/StatusIconRendererTests.swift
 git commit -m "feat: add special Wi-Fi icon overlays"
 ```
