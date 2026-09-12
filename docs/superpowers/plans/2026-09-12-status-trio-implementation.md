@@ -4926,11 +4926,17 @@ git commit -m "feat: monitor Wi-Fi state"
 
 ### Task 11: Implement volume monitoring
 
+> **Executed implementation note:** The final implementation supersedes the illustrative snippets below.
+> `VolumeReading.scalar` is optional; `VolumeReadingProviding` separates the protocol from the value type;
+> `CoreAudioClient`/`CoreAudioSystemClient` provide validated default-device access and testable CoreAudio calls;
+> `VolumeEventMonitoring.reconcile()` retries and migrates listeners; `VolumeMonitor` is one-shot and cleans up in isolated deinit.
+
+
 **Files:**
 - Create: `Sources/StatusTrioCore/Monitoring/VolumeMonitor.swift`
 - Create: `Tests/StatusTrioCoreTests/VolumeMonitorTests.swift`
 
-- [ ] **Step 1: Write failing volume monitor tests**
+- [x] **Step 1: Write failing volume monitor tests**
 
 Create `Tests/StatusTrioCoreTests/VolumeMonitorTests.swift`:
 
@@ -4965,7 +4971,7 @@ final class VolumeMonitorTests: XCTestCase {
     }
 }
 
-private final class FakeVolumeReader: VolumeReading {
+private final class FakeVolumeReader: VolumeReadingProviding {
     let result: VolumeReading?
 
     init(result: VolumeReading?) {
@@ -4978,17 +4984,17 @@ private final class FakeVolumeReader: VolumeReading {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
 ```bash
-swift test --filter VolumeMonitorTests
+bash scripts/test.sh VolumeMonitorTests
 ```
 
 Expected: compilation fails because `VolumeReading` and `VolumeMonitor` do not exist.
 
-- [ ] **Step 3: Implement the CoreAudio reader**
+- [x] **Step 3: Implement the CoreAudio reader**
 
 Create `Sources/StatusTrioCore/Monitoring/VolumeMonitor.swift` with:
 
@@ -5002,7 +5008,7 @@ struct VolumeReading: Equatable {
     var deviceName: String
 }
 
-protocol VolumeReading: AnyObject {
+protocol VolumeReadingProviding: AnyObject {
     func read() -> VolumeReading?
 }
 
@@ -5079,7 +5085,7 @@ final class CoreAudioVolumeReader: VolumeReading {
 }
 ```
 
-- [ ] **Step 4: Implement the monitor and wire CoreAudio listeners**
+- [x] **Step 4: Implement the monitor and wire CoreAudio listeners**
 
 Change `CoreAudioVolumeReader.defaultOutputDevice()` from `private` to internal so the monitor can attach listeners to the active device:
 
@@ -5100,12 +5106,12 @@ struct AudioPropertyListenerRegistration {
 final class VolumeMonitor: VolumeMonitoring {
     let updates: AsyncStream<VolumeStatus>
     private let continuation: AsyncStream<VolumeStatus>.Continuation
-    private let reader: any VolumeReading
+    private let reader: any VolumeReadingProviding
     private let listenerReader = CoreAudioVolumeReader()
     private var defaultDeviceRegistration: AudioPropertyListenerRegistration?
     private var currentDeviceRegistrations: [AudioPropertyListenerRegistration] = []
 
-    init(reader: any VolumeReading = CoreAudioVolumeReader()) {
+    init(reader: any VolumeReadingProviding = CoreAudioVolumeReader()) {
         self.reader = reader
         (updates, continuation) = AsyncStream.makeStream()
     }
@@ -5201,13 +5207,13 @@ final class VolumeMonitor: VolumeMonitoring {
 }
 ```
 
-- [ ] **Step 5: Run tests, smoke test, and commit**
+- [x] **Step 5: Run tests, smoke test, and commit**
 
 Run:
 
 ```bash
-swift test --filter VolumeMonitorTests
-swift test
+bash scripts/test.sh VolumeMonitorTests
+bash scripts/test.sh
 swift run StatusTrio
 ```
 
