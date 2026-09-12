@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Status Menubar · 数据驱动 Demo</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f4f5;
+      --surface: #ffffff;
+      --surface-soft: #f8f8f9;
+      --ink: #18181b;
+      --muted: #71717a;
+      --line: #e4e4e7;
+      --accent: #18181b;
+      --accent-ink: #ffffff;
+      --shadow: 0 24px 80px rgb(0 0 0 / 8%);
+      --icon-muted: color-mix(in srgb, var(--ink) 30%, transparent);
+      --battery-warning: #f2b900;
+      --battery-charging: #34c759;
+      --battery-color: var(--ink);
+      --radius-lg: 28px;
+      --radius-md: 18px;
+      --radius-sm: 12px;
+      --space: clamp(1rem, 2vw, 1.5rem);
+    }
+
+    @supports (color: oklch(0.5 0.1 250)) {
+      :root {
+        --bg: oklch(0.97 0.004 260);
+        --surface: oklch(1 0 0);
+        --surface-soft: oklch(0.985 0.003 260);
+        --ink: oklch(0.2 0.012 260);
+        --muted: oklch(0.56 0.018 260);
+        --line: oklch(0.91 0.008 260);
+        --accent: oklch(0.2 0.012 260);
+        --accent-ink: oklch(1 0 0);
+        --shadow: 0 24px 80px oklch(0.15 0.02 260 / 0.1);
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #09090b;
+        --surface: #18181b;
+        --surface-soft: #111113;
+        --ink: #fafafa;
+        --muted: #a1a1aa;
+        --line: #27272a;
+        --accent: #fafafa;
+        --accent-ink: #18181b;
+        --shadow: 0 24px 80px rgb(0 0 0 / 35%);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100dvh;
+      margin: 0;
+      padding: clamp(1rem, 4vw, 4rem);
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% 0%, color-mix(in srgb, var(--ink) 8%, transparent), transparent 34rem),
+        var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", sans-serif;
+      text-rendering: optimizeLegibility;
+    }
+
+    button,
+    input,
+    output {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    .page {
+      width: min(1080px, 100%);
+      margin-inline: auto;
+    }
+
+    .page-header {
+      margin-block-end: clamp(1.5rem, 4vw, 3rem);
+      text-wrap: balance;
+    }
+
+    .eyebrow {
+      margin: 0 0 0.6rem;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 15ch;
+      margin: 0;
+      font-size: clamp(2rem, 6vw, 4.5rem);
+      line-height: 0.95;
+      letter-spacing: -0.055em;
+    }
+
+    .intro {
+      max-width: 58ch;
+      margin: 1rem 0 0;
+      color: var(--muted);
+      font-size: clamp(0.95rem, 2vw, 1.08rem);
+      line-height: 1.65;
+      text-wrap: pretty;
+    }
+
+    .stage {
+      display: grid;
+      place-items: center;
+      min-height: clamp(300px, 48vw, 430px);
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background:
+        linear-gradient(color-mix(in srgb, var(--line) 40%, transparent) 1px, transparent 1px),
+        linear-gradient(90deg, color-mix(in srgb, var(--line) 40%, transparent) 1px, transparent 1px),
+        var(--surface);
+      background-size: 32px 32px;
+      box-shadow: var(--shadow);
+    }
+
+    .status-icon {
+      width: clamp(190px, 34vw, 290px);
+      height: auto;
+      color: var(--ink);
+      filter: drop-shadow(0 18px 28px color-mix(in srgb, var(--ink) 12%, transparent));
+    }
+
+    #battery-track {
+      stroke: var(--icon-muted);
+      opacity: 1;
+    }
+
+    #battery-fill {
+      stroke: var(--battery-color);
+      transition:
+        stroke 220ms ease,
+        stroke-dasharray 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        opacity 120ms ease;
+    }
+
+    #wifi [data-index],
+    #status-level [data-index] {
+      transition:
+        stroke 260ms ease,
+        fill 260ms ease,
+        opacity 260ms ease;
+    }
+
+    #wifi [data-index].is-muted {
+      stroke: var(--icon-muted);
+    }
+
+    #wifi [data-index="3"].is-muted {
+      stroke: none;
+      fill: var(--icon-muted);
+    }
+
+    #status-level [data-index].is-muted {
+      fill: var(--icon-muted);
+    }
+
+    #wifi-signal {
+      transition: opacity 240ms ease;
+    }
+
+    #wifi-overlays > [data-state] {
+      opacity: 0;
+      transition: opacity 220ms ease;
+    }
+
+    #wifi[data-state="off"] #wifi-overlays > [data-state="off"],
+    #wifi[data-state="noInternet"] #wifi-overlays > [data-state="noInternet"],
+    #wifi[data-state="hotspot"] #wifi-overlays > [data-state="hotspot"],
+    #wifi[data-state="temporary"] #wifi-overlays > [data-state="temporary"],
+    #wifi[data-state="shared"] #wifi-overlays > [data-state="shared"] {
+      opacity: 1;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+      gap: var(--space);
+      margin-block-start: var(--space);
+    }
+
+    .panel {
+      display: grid;
+      gap: 1rem;
+      padding: var(--space);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      box-shadow: 0 12px 36px color-mix(in srgb, var(--ink) 5%, transparent);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .panel-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .panel-value {
+      color: var(--muted);
+      font-size: 1.15rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      margin: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .state-field {
+      display: grid;
+      gap: 0.45rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 650;
+    }
+
+    .state-field select {
+      width: 100%;
+      min-height: 42px;
+      padding: 0 0.75rem;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--ink);
+      background: var(--surface-soft);
+      cursor: pointer;
+    }
+
+    .state-field select:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--ink) 24%, transparent);
+      outline-offset: 2px;
+    }
+
+    .segments {
+      display: grid;
+      grid-template-columns: repeat(var(--count), minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+
+    .segment {
+      min-height: 42px;
+      padding: 0.55rem 0.4rem;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--surface-soft);
+      cursor: pointer;
+      transition:
+        background-color 180ms ease,
+        border-color 180ms ease,
+        color 180ms ease,
+        transform 180ms ease;
+    }
+
+    .segment:hover {
+      border-color: color-mix(in srgb, var(--ink) 45%, var(--line));
+      transform: translateY(-1px);
+    }
+
+    .segment[aria-pressed="true"] {
+      border-color: var(--accent);
+      color: var(--accent-ink);
+      background: var(--accent);
+    }
+
+    .segment:focus-visible,
+    .mode-toggle:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--ink) 24%, transparent);
+      outline-offset: 2px;
+    }
+
+    .mode-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      min-height: 42px;
+      padding: 0.6rem 0.8rem;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--muted);
+      background: var(--surface-soft);
+      cursor: pointer;
+      transition:
+        color 180ms ease,
+        background-color 180ms ease,
+        border-color 180ms ease;
+    }
+
+    .battery-modes {
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .mode-toggle[aria-pressed="true"] {
+      color: #1a1a1a;
+      border-color: var(--battery-warning);
+      background: color-mix(in srgb, var(--battery-warning) 72%, white);
+    }
+
+    #charging-toggle[aria-pressed="true"] {
+      border-color: var(--battery-charging);
+      background: color-mix(in srgb, var(--battery-charging) 58%, white);
+    }
+
+    .state-code {
+      margin-block-start: var(--space);
+      padding: 1rem 1.15rem;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      color: var(--muted);
+      background: var(--surface);
+      font: 0.82rem/1.6 ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    .state-code strong {
+      color: var(--ink);
+    }
+
+    @media (pointer: coarse) {
+      .segment {
+        min-height: 48px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="page-header">
+      <p class="eyebrow">Status Menubar</p>
+      <h1>数据驱动图标演示</h1>
+      <p class="intro">拖动电池滑杆，或选择 Wi-Fi 与音量等级。JavaScript 会实时更新 SVG 中三个独立的视觉区域。</p>
+    </header>
+
+    <section class="stage" aria-label="图标预览">
+      <svg id="status-icon" class="status-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="电池、Wi-Fi 和音量状态">
+        <title>电池、Wi-Fi 和音量状态</title>
+        <defs>
+          <mask id="wifi-temporary-mask" maskUnits="userSpaceOnUse" x="24" y="40" width="72" height="48">
+            <path d="M38.5 55.5 A31 31 0 0 1 80.5 55.5 L59.5 77.45 Z" fill="white" stroke="white" stroke-width="7" stroke-linejoin="round"/>
+            <rect x="50.5" y="53.5" width="18" height="12" rx="2.5" fill="none" stroke="black" stroke-width="2.5" stroke-linejoin="round"/>
+            <path d="M57.5 65.5 H61.5 V67.5 H63 V70.5 H56 V67.5 H57.5 Z" fill="black"/>
+          </mask>
+          <mask id="wifi-shared-mask" maskUnits="userSpaceOnUse" x="24" y="40" width="72" height="48">
+            <path d="M38.5 55.5 A31 31 0 0 1 80.5 55.5 L59.5 77.45 Z" fill="white" stroke="white" stroke-width="7" stroke-linejoin="round"/>
+            <path d="M59.5 51.5 L67.5 59.5 H63 V72.5 H56 V59.5 H51.5 Z" fill="black"/>
+          </mask>
+        </defs>
+        <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <g id="battery" stroke-width="8">
+            <path id="battery-track" d="M15.5 88.25 A51.5 51.5 0 1 1 103.5 88.25"/>
+            <path id="battery-fill" d="M15.5 88.25 A51.5 51.5 0 1 1 103.5 88.25" pathLength="100"/>
+          </g>
+
+          <g id="wifi" data-state="compare" stroke-width="7">
+            <g id="wifi-signal">
+              <path data-index="1" d="M38.5 55.5 A31 31 0 0 1 80.5 55.5"/>
+              <path data-index="2" d="M47 65.25 A18.5 18.5 0 0 1 72 65.25"/>
+              <path data-index="3" d="M59.5 69.9 C61.0 69.9 65.2 70.8 66.5 73 C66.7 73.8 66.7 74.3 66.5 75 C63.8 78.8 61.15 80.95 59.5 80.95 C57.85 80.95 55.2 78.8 52.5 75 C52.3 74.3 52.3 73.8 52.5 73 C53.8 70.8 58.0 69.9 59.5 69.9 Z" fill="currentColor" stroke="none"/>
+            </g>
+
+            <g id="wifi-overlays" stroke-width="5">
+              <path data-state="off" d="M39 46 L81 79" stroke="var(--icon-muted)" stroke-width="6"/>
+
+              <g data-state="noInternet" stroke="var(--icon-muted)">
+                <path d="M59.5 54.5 V67"/>
+                <circle cx="59.5" cy="75.5" r="2.6" fill="var(--icon-muted)" stroke="none"/>
+              </g>
+
+              <g data-state="hotspot" stroke="currentColor">
+                <path d="M53 66 H49 A8 8 0 0 1 49 50 H54"/>
+                <path d="M66 50 H70 A8 8 0 0 1 70 66 H65"/>
+                <path d="M51 58 H68"/>
+              </g>
+
+              <path data-state="temporary" d="M38.5 55.5 A31 31 0 0 1 80.5 55.5 L59.5 77.45 Z" fill="currentColor" stroke="currentColor" stroke-width="7" mask="url(#wifi-temporary-mask)"/>
+              <path data-state="shared" d="M38.5 55.5 A31 31 0 0 1 80.5 55.5 L59.5 77.45 Z" fill="currentColor" stroke="currentColor" stroke-width="7" mask="url(#wifi-shared-mask)"/>
+            </g>
+
+          </g>
+        </g>
+
+        <g id="status-level" fill="currentColor">
+          <circle data-index="1" cx="33" cy="104.2" r="5.5"/>
+          <circle data-index="2" cx="50.5" cy="111.2" r="5.5"/>
+          <circle data-index="3" cx="68.5" cy="111.7" r="5.5"/>
+          <circle data-index="4" cx="86" cy="105.8" r="5.5"/>
+        </g>
+      </svg>
+    </section>
+
+    <section class="controls" aria-label="状态控制">
+      <article class="panel">
+        <div class="panel-header">
+          <label class="panel-title" for="battery-input">电池电量</label>
+          <output class="panel-value" id="battery-output" for="battery-input">75%</output>
+        </div>
+        <input id="battery-input" type="range" min="0" max="100" step="1" value="75">
+        <div class="battery-modes">
+          <button class="mode-toggle" id="low-power-toggle" type="button" aria-pressed="false">
+            <span>省电模式</span>
+            <span>黄色电量</span>
+          </button>
+          <button class="mode-toggle" id="charging-toggle" type="button" aria-pressed="false">
+            <span>正在充电</span>
+            <span>绿色电量</span>
+          </button>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Wi-Fi 信号</span>
+          <output class="panel-value" id="wifi-output">3 格</output>
+        </div>
+        <div class="segments" style="--count: 4" role="group" aria-label="Wi-Fi 信号等级">
+          <button class="segment" type="button" data-wifi="0" aria-pressed="false">无</button>
+          <button class="segment" type="button" data-wifi="1" aria-pressed="false">1</button>
+          <button class="segment" type="button" data-wifi="2" aria-pressed="false">2</button>
+          <button class="segment" type="button" data-wifi="3" aria-pressed="true">3</button>
+        </div>
+        <label class="state-field" for="wifi-state">
+          <span>连接状态</span>
+          <select id="wifi-state">
+            <option value="connected">已连接</option>
+            <option value="notAssociated">Wi-Fi 开启，未关联</option>
+            <option value="off">Wi-Fi 关闭或不可用</option>
+            <option value="noInternet">无互联网</option>
+            <option value="hotspot">使用 iPhone 热点</option>
+            <option value="temporary">临时 Wi-Fi 连接</option>
+            <option value="shared">正在共享互联网</option>
+          </select>
+        </label>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <span class="panel-title">音量信号</span>
+          <output class="panel-value" id="volume-output">4 格</output>
+        </div>
+        <div class="segments" style="--count: 5" role="group" aria-label="音量等级">
+          <button class="segment" type="button" data-volume="0" aria-pressed="false">静音</button>
+          <button class="segment" type="button" data-volume="1" aria-pressed="false">1</button>
+          <button class="segment" type="button" data-volume="2" aria-pressed="false">2</button>
+          <button class="segment" type="button" data-volume="3" aria-pressed="false">3</button>
+          <button class="segment" type="button" data-volume="4" aria-pressed="true">4</button>
+        </div>
+      </article>
+    </section>
+
+    <output class="state-code" id="state-code" aria-live="polite"></output>
+  </main>
+
+  <script>
+    const icon = document.getElementById('status-icon');
+    const batteryInput = document.getElementById('battery-input');
+    const batteryOutput = document.getElementById('battery-output');
+    const lowPowerToggle = document.getElementById('low-power-toggle');
+    const chargingToggle = document.getElementById('charging-toggle');
+    const wifiOutput = document.getElementById('wifi-output');
+    const wifiStateSelect = document.getElementById('wifi-state');
+    const volumeOutput = document.getElementById('volume-output');
+    const stateCode = document.getElementById('state-code');
+
+    const batteryFill = document.getElementById('battery-fill');
+    const wifiGroup = document.getElementById('wifi');
+    const wifiSignal = document.getElementById('wifi-signal');
+    const wifiParts = [...icon.querySelectorAll('#wifi [data-index]')];
+    const volumeParts = [...icon.querySelectorAll('#status-level [data-index]')];
+    const wifiButtons = [...document.querySelectorAll('[data-wifi]')];
+    const volumeButtons = [...document.querySelectorAll('[data-volume]')];
+
+    const state = {
+      battery: 75,
+      wifi: 3,
+      wifiState: 'connected',
+      volume: 4,
+      lowPower: false,
+      charging: false,
+    };
+
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value)));
+
+    function setPressed(buttons, value) {
+      for (const button of buttons) {
+        const buttonValue = Number(button.dataset.wifi ?? button.dataset.volume);
+        button.setAttribute('aria-pressed', String(buttonValue === value));
+      }
+    }
+
+    function updateBattery(value) {
+      const battery = clamp(value, 0, 100);
+      batteryFill.style.strokeDasharray = `${battery} 100`;
+      batteryFill.style.strokeDashoffset = '0';
+      batteryFill.style.opacity = battery === 0 ? '0' : '1';
+      batteryInput.value = String(battery);
+      batteryOutput.value = `${battery}%`;
+      return battery;
+    }
+
+    function updateBatteryColor() {
+      const batteryColor = state.charging
+        ? 'var(--battery-charging)'
+        : state.lowPower
+          ? 'var(--battery-warning)'
+          : 'var(--ink)';
+
+      icon.style.setProperty('--battery-color', batteryColor);
+      lowPowerToggle.setAttribute('aria-pressed', String(state.lowPower));
+      chargingToggle.setAttribute('aria-pressed', String(state.charging));
+    }
+
+    const WIFI_STATE_LABELS = {
+      connected: '已连接',
+      notAssociated: 'Wi-Fi 开启，未关联',
+      off: 'Wi-Fi 关闭或不可用',
+      noInternet: '无互联网',
+      hotspot: '使用 iPhone 热点',
+      temporary: '临时 Wi-Fi 连接',
+      shared: '正在共享互联网',
+    };
+
+    function updateWifi(value) {
+      const wifi = clamp(value, 0, 3);
+      const visibleIndexes = {
+        0: [],
+        1: [3],
+        2: [2, 3],
+        3: [1, 2, 3],
+      }[wifi];
+      const usesSignal = state.wifiState === 'connected';
+      const isSpecial = ['hotspot', 'temporary', 'shared'].includes(state.wifiState);
+
+      wifiGroup.dataset.state = state.wifiState;
+      wifiStateSelect.value = state.wifiState;
+      wifiSignal.style.opacity = isSpecial ? '0' : '1';
+
+      for (const part of wifiParts) {
+        const index = Number(part.dataset.index);
+        const isVisible = usesSignal && visibleIndexes.includes(index);
+        const isStateMarkerHidden = state.wifiState === 'noInternet' && index === 3;
+        part.classList.toggle('is-muted', !isVisible);
+        part.style.opacity = isStateMarkerHidden ? '0' : '1';
+      }
+
+      wifiOutput.value = state.wifiState === 'connected'
+        ? (wifi === 0 ? '无信号' : `${wifi} 格`)
+        : WIFI_STATE_LABELS[state.wifiState];
+      setPressed(wifiButtons, wifi);
+      return wifi;
+    }
+
+    function updateVolume(value) {
+      const volume = clamp(value, 0, 4);
+
+      for (const part of volumeParts) {
+        const isVisible = Number(part.dataset.index) <= volume;
+        part.classList.toggle('is-muted', !isVisible);
+        part.style.opacity = '1';
+      }
+
+      volumeOutput.value = volume === 0 ? '静音' : `${volume} 格`;
+      setPressed(volumeButtons, volume);
+      return volume;
+    }
+
+    function render() {
+      state.battery = updateBattery(state.battery);
+      updateBatteryColor();
+      state.wifi = updateWifi(state.wifi);
+      state.volume = updateVolume(state.volume);
+      stateCode.value =
+        `{ battery: ${state.battery}, wifi: ${state.wifi}, wifiState: '${state.wifiState}', volume: ${state.volume} }`;
+      icon.setAttribute(
+        'aria-label',
+        `电池 ${state.battery}%，Wi-Fi ${WIFI_STATE_LABELS[state.wifiState]}，音量 ${state.volume} 格`,
+      );
+    }
+
+    batteryInput.addEventListener('input', (event) => {
+      state.battery = clamp(event.currentTarget.value, 0, 100);
+      render();
+    });
+
+    wifiButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        state.wifi = Number(button.dataset.wifi);
+        render();
+      });
+    });
+
+    wifiStateSelect.addEventListener('change', () => {
+      state.wifiState = wifiStateSelect.value;
+      render();
+    });
+
+    volumeButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        state.volume = Number(button.dataset.volume);
+        render();
+      });
+    });
+
+    lowPowerToggle.addEventListener('click', () => {
+      state.lowPower = !state.lowPower;
+      if (state.lowPower) state.charging = false;
+      render();
+    });
+
+    chargingToggle.addEventListener('click', () => {
+      state.charging = !state.charging;
+      if (state.charging) state.lowPower = false;
+      render();
+    });
+
+    // 也可以从控制台调用：setStatus({ battery: 42, wifi: 2, wifiState: 'noInternet', volume: 3 })
+    window.setStatus = (next = {}) => {
+      state.battery = clamp(next.battery ?? state.battery, 0, 100);
+      state.lowPower = next.lowPower ?? state.lowPower;
+      state.charging = next.charging ?? state.charging;
+      if (state.charging) state.lowPower = false;
+      if (state.lowPower) state.charging = false;
+      state.wifi = clamp(next.wifi ?? state.wifi, 0, 3);
+      if (next.wifiState && WIFI_STATE_LABELS[next.wifiState]) state.wifiState = next.wifiState;
+      state.volume = clamp(next.volume ?? state.volume, 0, 4);
+      render();
+    };
+
+    render();
+  </script>
+</body>
+</html>

@@ -3,3 +3,6 @@
 DerivedData/
 *.xcuserstate
 xcuserdata/
+.agent/
+backups/
+apple-wifi-icons/

@@ -31,3 +31,8 @@ The project is currently in the design phase. The implementation plan and app so
 - macOS 15+
 - `LSUIElement` menu bar app
 - No App Sandbox, network permission, or location permission
+
+## Reference design
+
+- [SVG source](status-menubar.svg)
+- [Data-driven demo](status-menubar-demo.html)

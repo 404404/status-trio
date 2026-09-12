@@ -22,6 +22,8 @@
 | Path | Responsibility |
 | --- | --- |
 | `Package.swift` | Swift package, targets, frameworks, macOS platform |
+| `status-menubar.svg` | Original three-in-one vector reference |
+| `status-menubar-demo.html` | Original data-driven visual reference |
 | `Sources/StatusTrio/main.swift` | NSApplication entry point |
 | `Sources/StatusTrioCore/App/AppDelegate.swift` | App lifecycle and live environment creation |
 | `Sources/StatusTrioCore/App/AppEnvironment.swift` | Wires live monitors into the store and status bar |
@@ -56,6 +58,8 @@
 
 **Files:**
 - Create: `Package.swift`
+- Add: `status-menubar.svg`
+- Add: `status-menubar-demo.html`
 - Create: `Sources/StatusTrioCore/StatusTrioCore.swift`
 - Create: `Sources/StatusTrioCore/Models/StatusSnapshot.swift`
 - Create: `Tests/StatusTrioCoreTests/StatusSnapshotTests.swift`
@@ -231,7 +235,7 @@ Expected: both commands pass.
 - [ ] **Step 5: Commit the package foundation**
 
 ```bash
-git add Package.swift Sources/StatusTrioCore Tests/StatusTrioCoreTests
+git add Package.swift status-menubar.svg status-menubar-demo.html Sources/StatusTrioCore Tests/StatusTrioCoreTests
 git commit -m "feat: bootstrap Status Trio package and models"
 ```
 
