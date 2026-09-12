@@ -1,0 +1,71 @@
+import XCTest
+@testable import StatusTrioCore
+
+final class StatusSnapshotTests: XCTestCase {
+    func testMissingBatteryBehavesAsFull() {
+        let battery = BatteryStatus(
+            rawPercentage: nil,
+            isPresent: false,
+            isCharging: false,
+            isLowPowerMode: false,
+            isConnectedToPower: false
+        )
+
+        XCTAssertEqual(battery.percentage, 100)
+    }
+
+    func testPresentBatteryWithNegativeRawPercentageClampsToZero() {
+        XCTAssertEqual(makeBattery(rawPercentage: -1).percentage, 0)
+    }
+
+    func testPresentBatteryAboveMaximumClampsTo100() {
+        XCTAssertEqual(makeBattery(rawPercentage: 101).percentage, 100)
+    }
+
+    func testPresentBatteryWithNilRawPercentageDefaultsTo100() {
+        XCTAssertEqual(makeBattery(rawPercentage: nil).percentage, 100)
+    }
+
+    func testWiFiPlaceholderHasStableDefaults() {
+        let wifi = WiFiStatus.placeholder
+
+        XCTAssertEqual(wifi.state, .unavailable)
+        XCTAssertNil(wifi.rssi)
+    }
+
+    func testVolumePlaceholderHasStableDefaults() {
+        let volume = VolumeStatus.placeholder
+
+        XCTAssertNil(volume.scalar)
+        XCTAssertFalse(volume.isMuted)
+        XCTAssertNil(volume.deviceName)
+    }
+
+    func testSnapshotPlaceholderHasStableDefaults() {
+        let snapshot = StatusSnapshot.placeholder
+
+        XCTAssertEqual(snapshot.battery.rawPercentage, 100)
+        XCTAssertTrue(snapshot.battery.isPresent)
+        XCTAssertFalse(snapshot.battery.isCharging)
+        XCTAssertFalse(snapshot.battery.isLowPowerMode)
+        XCTAssertFalse(snapshot.battery.isConnectedToPower)
+        XCTAssertEqual(snapshot.wifi, .placeholder)
+        XCTAssertEqual(snapshot.volume, .placeholder)
+    }
+
+    func testSnapshotDefaultsAreStable() {
+        XCTAssertEqual(StatusSnapshot.placeholder.battery.percentage, 100)
+        XCTAssertEqual(StatusSnapshot.placeholder.wifi.state, .unavailable)
+        XCTAssertNil(StatusSnapshot.placeholder.volume.scalar)
+    }
+
+    private func makeBattery(rawPercentage: Int?) -> BatteryStatus {
+        BatteryStatus(
+            rawPercentage: rawPercentage,
+            isPresent: true,
+            isCharging: false,
+            isLowPowerMode: false,
+            isConnectedToPower: false
+        )
+    }
+}

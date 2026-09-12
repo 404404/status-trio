@@ -6,3 +6,5 @@ xcuserdata/
 .agent/
 backups/
 apple-wifi-icons/
+
+.build/
