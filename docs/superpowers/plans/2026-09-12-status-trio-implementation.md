@@ -102,9 +102,6 @@ import PackageDescription
 let package = Package(
     name: "StatusTrio",
     platforms: [.macOS(.v15)],
-    products: [
-        .executable(name: "StatusTrio", targets: ["StatusTrio"])
-    ],
     targets: [
         .target(
             name: "StatusTrioCore",
@@ -118,11 +115,6 @@ let package = Package(
                 .linkedFramework("Network"),
                 .linkedFramework("SystemConfiguration")
             ]
-        ),
-        .executableTarget(
-            name: "StatusTrio",
-            dependencies: ["StatusTrioCore"],
-            path: "Sources/StatusTrio"
         ),
         .testTarget(
             name: "StatusTrioCoreTests",
@@ -1404,6 +1396,7 @@ git commit -m "feat: add special Wi-Fi icon overlays"
 ### Task 7: Add the AppKit app shell and right-click menu
 
 **Files:**
+- Modify: `Package.swift`
 - Create: `Sources/StatusTrio/main.swift`
 - Create: `Sources/StatusTrioCore/UI/StatusMenuBuilder.swift`
 - Create: `Sources/StatusTrioCore/UI/StatusBarController.swift`
@@ -1495,7 +1488,47 @@ enum StatusMenuBuilder {
 }
 ```
 
-- [ ] **Step 4: Implement the status bar controller and app entry point**
+- [ ] **Step 4: Add the executable target, status bar controller, and app entry point**
+
+Replace `Package.swift` with:
+
+```swift
+// swift-tools-version: 6.0
+import PackageDescription
+
+let package = Package(
+    name: "StatusTrio",
+    platforms: [.macOS(.v15)],
+    products: [
+        .executable(name: "StatusTrio", targets: ["StatusTrio"])
+    ],
+    targets: [
+        .target(
+            name: "StatusTrioCore",
+            path: "Sources/StatusTrioCore",
+            linkerSettings: [
+                .linkedFramework("AppKit"),
+                .linkedFramework("SwiftUI"),
+                .linkedFramework("IOKit"),
+                .linkedFramework("CoreWLAN"),
+                .linkedFramework("CoreAudio"),
+                .linkedFramework("Network"),
+                .linkedFramework("SystemConfiguration")
+            ]
+        ),
+        .executableTarget(
+            name: "StatusTrio",
+            dependencies: ["StatusTrioCore"],
+            path: "Sources/StatusTrio"
+        ),
+        .testTarget(
+            name: "StatusTrioCoreTests",
+            dependencies: ["StatusTrioCore"],
+            path: "Tests/StatusTrioCoreTests"
+        )
+    ]
+)
+```
 
 Create `Sources/StatusTrioCore/UI/StatusBarController.swift`:
 
