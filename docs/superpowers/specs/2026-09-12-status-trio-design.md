@@ -46,7 +46,7 @@ Status Trio 是一个仅供个人使用、常驻 macOS 菜单栏的状态工具�
 
 ### 后续扩展边界
 
-未来设置界面通过独立的 `SettingsStore` 边界接入，用于开机启动、颜色、图标大小和刷新策略。第一版不创建这些设置，也不提前写入偏好数据。
+未来设置界面作为独立模块接入，用于开机启动、颜色、图标大小和刷新策略。第一版不创建设置界面，也不提前写入偏好数据。
 
 ## 3. 用户体验
 
@@ -148,11 +148,10 @@ Status Trio 是一个仅供个人使用、常驻 macOS 菜单栏的状态工具�
 - `StatusIconRenderer`：把 `StatusSnapshot` 绘制为 20 pt `NSImage`，不读取系统状态，并响应菜单栏外观变化。
 - `StatusPopoverView`：SwiftUI 只读弹层。
 - `StatusMenuBuilder`：构造原生右键菜单。
-- `SettingsStore`：第一版仅提供默认值和只读边界，不持久化。
 
 ### 5.2 技术基线
 
-- 使用 Xcode 工程、Swift 6 和 AppKit 生命周期构建 macOS App。
+- 使用 Swift Package Manager、Swift 6 和 AppKit 生命周期构建 macOS App；`Package.swift` 可直接使用 Xcode 打开。
 - Deployment Target 为 macOS 15，当前开发环境为 macOS 27、Apple Silicon。
 - `Info.plist` 设置 `LSUIElement = true`，应用只显示菜单栏状态项。
 - 不启用 App Sandbox，不申请网络、定位或其他隐私权限。
