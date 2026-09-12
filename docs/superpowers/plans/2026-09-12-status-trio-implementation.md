@@ -5721,10 +5721,13 @@ git commit -m "build: package Status Trio app bundle"
 
 ### Task 15: Final acceptance verification
 
+> **Final verification note:** 146 XCTest cases pass serially and in parallel. Strict-concurrency builds/tests, focused ASan/TSan, repeated full-suite runs, release bundle/signature checks, single-instance smoke, and live monitor startup all pass. The manual UI/physical-state matrix in Step 2 remains for the user because the desktop session was locked and changing Wi-Fi/charging/sleep state would be destructive.
+
+
 **Files:**
 - Modify: `README.md` only if a verified limitation needs documenting.
 
-- [ ] **Step 1: Run the complete automated suite**
+- [x] **Step 1: Run the complete automated suite**
 
 ```bash
 swift test
@@ -5758,7 +5761,7 @@ Verify each row and record failures in a temporary issue or local note:
 | Quit | Select quit | App exits and menu bar icon disappears |
 | Wake | Sleep and wake the Mac | Status refreshes without restart |
 
-- [ ] **Step 3: Check repository state and publish the final commit**
+- [x] **Step 3: Check repository state and publish the final commit**
 
 ```bash
 git status --short --branch
@@ -5768,7 +5771,7 @@ git push
 
 Expected: `main` tracks `origin/main`, the working tree has no modified tracked files, and the GitHub repository contains the complete implementation.
 
-- [ ] **Step 4: Verify GitHub metadata**
+- [x] **Step 4: Verify GitHub metadata**
 
 Run:
 
