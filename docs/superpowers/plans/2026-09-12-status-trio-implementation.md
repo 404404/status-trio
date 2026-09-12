@@ -2167,7 +2167,7 @@ git commit -m "feat: add special Wi-Fi icon overlays"
 - Create: `Sources/StatusTrioCore/App/AppDelegate.swift`
 - Create: `Tests/StatusTrioCoreTests/StatusMenuBuilderTests.swift`
 
-- [ ] **Step 1: Write failing menu and click-routing tests**
+- [x] **Step 1: Write failing menu and click-routing tests**
 
 Create `Tests/StatusTrioCoreTests/StatusMenuBuilderTests.swift`:
 
@@ -2180,6 +2180,9 @@ import XCTest
 final class StatusMenuBuilderTests: XCTestCase {
     func testMenuContainsVersionPlaceholderAndQuit() {
         let menu = StatusMenuBuilder.makeMenu(version: "1.0.0")
+        let versionItem = menu.items[0]
+        let settingsItem = menu.items[1]
+        let quitItem = menu.items[3]
 
         XCTAssertEqual(menu.items.map(\.title), [
             "Status Trio 1.0.0",
@@ -2187,30 +2190,36 @@ final class StatusMenuBuilderTests: XCTestCase {
             "",
             "退出 Status Trio"
         ])
-        XCTAssertFalse(menu.items[0].isEnabled)
-        XCTAssertFalse(menu.items[1].isEnabled)
-        XCTAssertTrue(menu.items[3].isEnabled)
+        XCTAssertFalse(versionItem.isEnabled)
+        XCTAssertFalse(settingsItem.isEnabled)
+        XCTAssertTrue(quitItem.isEnabled)
+        XCTAssertEqual(quitItem.keyEquivalent, "q")
+        XCTAssertEqual(quitItem.keyEquivalentModifierMask, .command)
+        XCTAssertTrue(quitItem.target === NSApplication.shared)
+        XCTAssertEqual(quitItem.action, #selector(NSApplication.terminate(_:)))
     }
 
     func testClickClassification() {
         XCTAssertEqual(StatusBarController.clickKind(eventType: .leftMouseUp, modifiers: []), .left)
         XCTAssertEqual(StatusBarController.clickKind(eventType: .rightMouseUp, modifiers: []), .right)
         XCTAssertEqual(StatusBarController.clickKind(eventType: .leftMouseUp, modifiers: [.control]), .right)
+        XCTAssertNil(StatusBarController.clickKind(eventType: .leftMouseDown, modifiers: []))
+        XCTAssertNil(StatusBarController.clickKind(eventType: .flagsChanged, modifiers: []))
     }
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
 ```bash
-swift test --filter StatusMenuBuilderTests
+bash scripts/test.sh StatusMenuBuilderTests
 ```
 
 Expected: compilation fails because `StatusMenuBuilder` and `StatusBarController` do not exist.
 
-- [ ] **Step 3: Implement the menu builder**
+- [x] **Step 3: Implement the menu builder**
 
 Create `Sources/StatusTrioCore/UI/StatusMenuBuilder.swift`:
 
@@ -2252,7 +2261,7 @@ enum StatusMenuBuilder {
 }
 ```
 
-- [ ] **Step 4: Add the executable target, status bar controller, and app entry point**
+- [x] **Step 4: Add the executable target, status bar controller, and app entry point**
 
 Replace `Package.swift` with:
 
@@ -2324,6 +2333,7 @@ final class StatusBarController: NSObject {
 
         cancellable = store.$snapshot
             .removeDuplicates()
+            .dropFirst()
             .sink { [weak self] snapshot in
                 self?.render(snapshot: snapshot)
             }
@@ -2381,7 +2391,7 @@ final class StatusBarController: NSObject {
         guard let button = statusItem.button else { return }
         menu.popUp(
             positioning: nil,
-            at: NSPoint(x: 0, y: button.bounds.minY - 4),
+            at: NSPoint(x: 0, y: button.bounds.maxY + 4),
             in: button
         )
     }
@@ -2489,13 +2499,13 @@ application.delegate = delegate
 application.run()
 ```
 
-- [ ] **Step 5: Run tests, build, manual smoke test, and commit**
+- [x] **Step 5: Run tests, build, manual smoke test, and commit**
 
 Run:
 
 ```bash
-swift test --filter StatusMenuBuilderTests
-swift test
+bash scripts/test.sh StatusMenuBuilderTests
+bash scripts/test.sh
 swift build
 swift run StatusTrio
 ```
