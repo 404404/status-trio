@@ -1294,7 +1294,7 @@ git commit -m "feat: add three-in-one icon geometry"
 - Create: `Sources/StatusTrioCore/UI/Icon/StatusIconRenderer.swift`
 - Create: `Tests/StatusTrioCoreTests/StatusIconRendererTests.swift`
 
-- [ ] **Step 1: Write failing renderer tests**
+- [x] **Step 1: Write failing renderer tests**
 
 Create `Tests/StatusTrioCoreTests/StatusIconRendererTests.swift`:
 
@@ -1305,16 +1305,69 @@ import XCTest
 @testable import StatusTrioCore
 
 final class StatusIconRendererTests: XCTestCase {
-    func testRendererProducesExpectedPixelSize() {
-        let image = StatusIconRenderer.render(
+    func testRendererProducesExpectedPixelSize() throws {
+        let image = try XCTUnwrap(StatusIconRenderer.render(
             snapshot: .placeholder,
             size: 20,
             scale: 2,
             foreground: CGColor(gray: 1, alpha: 1)
-        )
+        ))
 
         XCTAssertEqual(image.width, 40)
         XCTAssertEqual(image.height, 40)
+    }
+
+    func testRendererRejectsNonPositiveSizeOrScale() {
+        let snapshot = StatusSnapshot.placeholder
+        let foreground = CGColor(gray: 1, alpha: 1)
+
+        XCTAssertNil(StatusIconRenderer.render(
+            snapshot: snapshot,
+            size: 0,
+            scale: 2,
+            foreground: foreground
+        ))
+        XCTAssertNil(StatusIconRenderer.render(
+            snapshot: snapshot,
+            size: -1,
+            scale: 2,
+            foreground: foreground
+        ))
+        XCTAssertNil(StatusIconRenderer.render(
+            snapshot: snapshot,
+            size: 20,
+            scale: 0,
+            foreground: foreground
+        ))
+        XCTAssertNil(StatusIconRenderer.render(
+            snapshot: snapshot,
+            size: 20,
+            scale: -1,
+            foreground: foreground
+        ))
+    }
+
+    func testForegroundStateDrawsRedPixels() throws {
+        let red = try XCTUnwrap(CGColor(
+            colorSpace: CGColorSpaceCreateDeviceRGB(),
+            components: [1, 0, 0, 1]
+        ))
+        let pixels = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: .placeholder,
+                size: 20,
+                scale: 2,
+                foreground: red
+            ))
+        )
+
+        XCTAssertTrue(pixels.containsColor(
+            red: 1,
+            green: 0,
+            blue: 0,
+            tolerance: 0.02,
+            minimumAlpha: 0.9
+        ))
     }
 
     func testChargingStateDrawsGreenPixels() throws {
@@ -1331,33 +1384,90 @@ final class StatusIconRendererTests: XCTestCase {
         )
 
         let pixels = try PixelBuffer(
-            image: StatusIconRenderer.render(
+            image: try XCTUnwrap(StatusIconRenderer.render(
                 snapshot: snapshot,
                 size: 20,
                 scale: 2,
                 foreground: CGColor(gray: 1, alpha: 1)
-            )
+            ))
         )
 
-        XCTAssertTrue(pixels.containsColor(red: 0.20, green: 0.78, blue: 0.35, tolerance: 0.08))
+        XCTAssertTrue(pixels.containsColor(
+            red: 0.20,
+            green: 0.78,
+            blue: 0.35,
+            tolerance: 0.08,
+            minimumAlpha: 0.9
+        ))
     }
 
-    func testOffStateUsesMutedSignalAndSlash() throws {
-        let snapshot = StatusSnapshot(
+    func testOffStateDrawsSlashOutsideWiFiArcs() throws {
+        let offSnapshot = StatusSnapshot(
             battery: .placeholder,
             wifi: WiFiStatus(state: .off, rssi: nil),
             volume: .placeholder
         )
+        let unavailableSnapshot = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .unavailable, rssi: nil),
+            volume: .placeholder
+        )
+        let offPixels = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: offSnapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1)
+            ))
+        )
+        let unavailablePixels = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: unavailableSnapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1)
+            ))
+        )
+        let slashPoint = CGPoint(x: 75, y: 73)
 
-        let image = StatusIconRenderer.render(
-            snapshot: snapshot,
-            size: 20,
-            scale: 2,
-            foreground: CGColor(gray: 1, alpha: 1)
+        XCTAssertGreaterThan(
+            offPixels.alpha(atSVGPoint: slashPoint, size: 20, scale: 8),
+            0
+        )
+        XCTAssertEqual(
+            unavailablePixels.alpha(atSVGPoint: slashPoint, size: 20, scale: 8),
+            0
+        )
+    }
+
+    func testNoInternetOmitsNormalWiFiDotWhileKeepingOverlay() throws {
+        let snapshot = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .noInternet, rssi: nil),
+            volume: .placeholder
+        )
+        let pixels = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1)
+            ))
         )
 
-        XCTAssertEqual(image.width, 40)
-        XCTAssertEqual(image.height, 40)
+        // The exclamation dot overlaps the full normal-dot centroid, so sample
+        // the centroid of the normal dot's uncovered lower region.
+        let uncoveredNormalDotCentroid = CGPoint(x: 59.5, y: 79.17)
+        let overlayStem = CGPoint(x: 59.5, y: 60)
+
+        XCTAssertEqual(
+            pixels.alpha(atSVGPoint: uncoveredNormalDotCentroid, size: 20, scale: 8),
+            0
+        )
+        XCTAssertGreaterThan(
+            pixels.alpha(atSVGPoint: overlayStem, size: 20, scale: 8),
+            0
+        )
     }
 
     func testLowPowerStateDrawsYellowPixels() throws {
@@ -1374,15 +1484,196 @@ final class StatusIconRendererTests: XCTestCase {
         )
 
         let pixels = try PixelBuffer(
-            image: StatusIconRenderer.render(
+            image: try XCTUnwrap(StatusIconRenderer.render(
                 snapshot: snapshot,
                 size: 20,
                 scale: 2,
                 foreground: CGColor(gray: 1, alpha: 1)
-            )
+            ))
         )
 
-        XCTAssertTrue(pixels.containsColor(red: 0.95, green: 0.73, blue: 0.0, tolerance: 0.08))
+        XCTAssertTrue(pixels.containsColor(
+            red: 0.95,
+            green: 0.73,
+            blue: 0.0,
+            tolerance: 0.08,
+            minimumAlpha: 0.9
+        ))
+    }
+
+    func testAppKitWrapperProducesBitmapRepresentation() throws {
+        let appearance = try XCTUnwrap(NSAppearance(named: .aqua))
+        let image = StatusIconRenderer.image(
+            snapshot: .placeholder,
+            size: 20,
+            appearance: appearance
+        )
+
+        XCTAssertEqual(image.size.width, 20, accuracy: 0.01)
+        XCTAssertEqual(image.size.height, 20, accuracy: 0.01)
+
+        let tiff = try XCTUnwrap(image.tiffRepresentation)
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: tiff))
+        XCTAssertGreaterThan(bitmap.pixelsWide, 0)
+        XCTAssertGreaterThan(bitmap.pixelsHigh, 0)
+    }
+
+    func testConnectedSignalAlphaSumIncreasesWithBars() throws {
+        let rssiValues: [Int?] = [nil, -85, -70, -55]
+        let signalRegion = CGRect(x: 35, y: 43, width: 50, height: 43)
+        var alphaSums: [Int] = []
+
+        for rssi in rssiValues {
+            let snapshot = StatusSnapshot(
+                battery: .placeholder,
+                wifi: WiFiStatus(state: .connected, rssi: rssi),
+                volume: .placeholder
+            )
+            let pixels = try PixelBuffer(
+                image: try XCTUnwrap(StatusIconRenderer.render(
+                    snapshot: snapshot,
+                    size: 20,
+                    scale: 8,
+                    foreground: CGColor(gray: 1, alpha: 1)
+                ))
+            )
+            alphaSums.append(pixels.alphaSum(
+                inSVGRect: signalRegion,
+                size: 20,
+                scale: 8
+            ))
+        }
+
+        for index in 0..<(alphaSums.count - 1) {
+            XCTAssertLessThan(alphaSums[index], alphaSums[index + 1])
+        }
+    }
+
+    func testHotspotOverlayPointIsUnique() throws {
+        let hotspotSnapshot = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .hotspot, rssi: nil),
+            volume: .placeholder
+        )
+        let connectedSnapshot = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .connected, rssi: -55),
+            volume: .placeholder
+        )
+        let hotspotPixels = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: hotspotSnapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1)
+            ))
+        )
+        let connectedPixels = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: connectedSnapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1)
+            ))
+        )
+        let hotspotOnlyPoint = CGPoint(x: 41.5, y: 58)
+
+        XCTAssertGreaterThan(
+            hotspotPixels.alpha(atSVGPoint: hotspotOnlyPoint, size: 20, scale: 8),
+            0
+        )
+        XCTAssertEqual(
+            connectedPixels.alpha(atSVGPoint: hotspotOnlyPoint, size: 20, scale: 8),
+            0
+        )
+    }
+
+    func testVolumeAlphaSumIncreasesWithVisibleDots() throws {
+        let scalars = [0.0, 0.25, 0.50, 0.75, 1.0]
+        let volumeRegion = CGRect(x: 25, y: 92, width: 75, height: 28)
+        var alphaSums: [Int] = []
+
+        for scalar in scalars {
+            let snapshot = StatusSnapshot(
+                battery: .placeholder,
+                wifi: .placeholder,
+                volume: VolumeStatus(
+                    scalar: scalar,
+                    isMuted: false,
+                    deviceName: nil
+                )
+            )
+            let pixels = try PixelBuffer(
+                image: try XCTUnwrap(StatusIconRenderer.render(
+                    snapshot: snapshot,
+                    size: 20,
+                    scale: 8,
+                    foreground: CGColor(gray: 1, alpha: 1)
+                ))
+            )
+            alphaSums.append(pixels.alphaSum(
+                inSVGRect: volumeRegion,
+                size: 20,
+                scale: 8
+            ))
+        }
+
+        for index in 0..<(alphaSums.count - 1) {
+            XCTAssertLessThan(alphaSums[index], alphaSums[index + 1])
+        }
+    }
+
+    func testMutedVolumeMatchesZeroVolume() throws {
+        let zeroSnapshot = StatusSnapshot(
+            battery: .placeholder,
+            wifi: .placeholder,
+            volume: VolumeStatus(scalar: 0, isMuted: false, deviceName: nil)
+        )
+        let mutedSnapshot = StatusSnapshot(
+            battery: .placeholder,
+            wifi: .placeholder,
+            volume: VolumeStatus(scalar: 0.8, isMuted: true, deviceName: nil)
+        )
+        let zeroPixels = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: zeroSnapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1)
+            ))
+        )
+        let mutedPixels = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: mutedSnapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1)
+            ))
+        )
+
+        XCTAssertEqual(mutedPixels.bytes, zeroPixels.bytes)
+    }
+
+    func testZeroVolumeDrawsFourHiddenDots() throws {
+        let snapshot = StatusSnapshot(
+            battery: .placeholder,
+            wifi: .placeholder,
+            volume: VolumeStatus(scalar: 0, isMuted: false, deviceName: nil)
+        )
+        let pixels = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1)
+            ))
+        )
+        let expectedAlpha = 0.22 * 255.0
+
+        for point in StatusIconGeometry.volumeDots() {
+            let alpha = Double(pixels.alpha(atSVGPoint: point, size: 20, scale: 8))
+            XCTAssertEqual(alpha, expectedAlpha, accuracy: 2)
+        }
     }
 }
 
@@ -1408,29 +1699,83 @@ private struct PixelBuffer {
         bytes = storage
     }
 
-    func containsColor(red: Double, green: Double, blue: Double, tolerance: Double) -> Bool {
-        bytes.enumerated().contains { index, byte in
-            index % 4 == 0 && abs(Double(byte) / 255.0 - red) <= tolerance
-        } && bytes.enumerated().contains { index, byte in
-            index % 4 == 1 && abs(Double(byte) / 255.0 - green) <= tolerance
-        } && bytes.enumerated().contains { index, byte in
-            index % 4 == 2 && abs(Double(byte) / 255.0 - blue) <= tolerance
+    func alpha(atSVGPoint point: CGPoint, size: CGFloat, scale: CGFloat) -> UInt8 {
+        guard let pixel = pixelPoint(forSVGPoint: point, size: size, scale: scale) else {
+            return 0
         }
+        return bytes[(pixel.y * width + pixel.x) * 4 + 3]
+    }
+
+    func alphaSum(inSVGRect rect: CGRect, size: CGFloat, scale: CGFloat) -> Int {
+        let pixelsPerSVGUnit = pixelsPerSVGUnit(size: size, scale: scale)
+        let minX = max(0, Int((rect.minX * pixelsPerSVGUnit).rounded(.down)))
+        let maxX = min(width, Int((rect.maxX * pixelsPerSVGUnit).rounded(.up)))
+        let minY = max(0, Int((rect.minY * pixelsPerSVGUnit).rounded(.down)))
+        let maxY = min(height, Int((rect.maxY * pixelsPerSVGUnit).rounded(.up)))
+
+        guard minX < maxX, minY < maxY else { return 0 }
+
+        var sum = 0
+        for y in minY..<maxY {
+            for x in minX..<maxX {
+                sum += Int(bytes[(y * width + x) * 4 + 3])
+            }
+        }
+        return sum
+    }
+
+    func containsColor(
+        red: Double,
+        green: Double,
+        blue: Double,
+        tolerance: Double,
+        minimumAlpha: Double
+    ) -> Bool {
+        stride(from: 0, to: bytes.count - 3, by: 4).contains { index in
+            let pixelRed = Double(bytes[index]) / 255.0
+            let pixelGreen = Double(bytes[index + 1]) / 255.0
+            let pixelBlue = Double(bytes[index + 2]) / 255.0
+            let pixelAlpha = Double(bytes[index + 3]) / 255.0
+
+            return pixelAlpha >= minimumAlpha
+                && abs(pixelRed - red) <= tolerance
+                && abs(pixelGreen - green) <= tolerance
+                && abs(pixelBlue - blue) <= tolerance
+        }
+    }
+
+    private func pixelPoint(
+        forSVGPoint point: CGPoint,
+        size: CGFloat,
+        scale: CGFloat
+    ) -> (x: Int, y: Int)? {
+        // PixelBuffer's normalized rows are top-down, so the renderer's
+        // flipped SVG y-down coordinate maps directly to raster y.
+        let pixelsPerSVGUnit = pixelsPerSVGUnit(size: size, scale: scale)
+        let x = Int((point.x * pixelsPerSVGUnit).rounded(.down))
+        let y = Int((point.y * pixelsPerSVGUnit).rounded(.down))
+
+        guard x >= 0, x < width, y >= 0, y < height else { return nil }
+        return (x, y)
+    }
+
+    private func pixelsPerSVGUnit(size: CGFloat, scale: CGFloat) -> CGFloat {
+        size * scale / StatusIconGeometry.canvas.width
     }
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
 ```bash
-swift test --filter StatusIconRendererTests
+bash scripts/test.sh StatusIconRendererTests
 ```
 
 Expected: compilation fails because `StatusIconRenderer` does not exist.
 
-- [ ] **Step 3: Implement the renderer**
+- [x] **Step 3: Implement the renderer**
 
 Create `Sources/StatusTrioCore/UI/Icon/StatusIconRenderer.swift`:
 
@@ -1446,15 +1791,19 @@ enum StatusIconRenderer {
         size: CGFloat = baseSize,
         appearance: NSAppearance
     ) -> NSImage {
+        let image = NSImage(size: NSSize(width: size, height: size))
+
         appearance.performAsCurrentDrawingAppearance {
             let foreground = NSColor.labelColor.usingColorSpace(.deviceRGB)?.cgColor
                 ?? CGColor(gray: 1, alpha: 1)
-            let image = NSImage(size: NSSize(width: size, height: size))
             image.lockFocus()
             defer { image.unlockFocus() }
+
             guard let context = NSGraphicsContext.current?.cgContext else { return }
             draw(snapshot: snapshot, in: context, size: size, foreground: foreground)
         }
+
+        return image
     }
 
     static func render(
@@ -1462,22 +1811,33 @@ enum StatusIconRenderer {
         size: CGFloat,
         scale: CGFloat,
         foreground: CGColor
-    ) -> CGImage {
-        let pixelWidth = Int(size * scale)
-        let pixelHeight = Int(size * scale)
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let context = CGContext(
+    ) -> CGImage? {
+        guard size.isFinite, scale.isFinite, size > 0, scale > 0 else { return nil }
+
+        let pixelLength = (size * scale).rounded(.up)
+        guard pixelLength.isFinite,
+              let pixelDimension = Int(exactly: pixelLength),
+              pixelDimension > 0,
+              pixelDimension <= Int.max / 4
+        else {
+            return nil
+        }
+
+        guard let context = CGContext(
             data: nil,
-            width: pixelWidth,
-            height: pixelHeight,
+            width: pixelDimension,
+            height: pixelDimension,
             bitsPerComponent: 8,
-            bytesPerRow: pixelWidth * 4,
-            space: colorSpace,
+            bytesPerRow: pixelDimension * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        )!
+        ) else {
+            return nil
+        }
+
         context.scaleBy(x: scale, y: scale)
         draw(snapshot: snapshot, in: context, size: size, foreground: foreground)
-        return context.makeImage()!
+        return context.makeImage()
     }
 
     private static func draw(
@@ -1489,7 +1849,7 @@ enum StatusIconRenderer {
         context.saveGState()
         defer { context.restoreGState() }
 
-        let scale = size / 120
+        let scale = size / StatusIconGeometry.canvas.width
         context.translateBy(x: 0, y: size)
         context.scaleBy(x: scale, y: -scale)
 
@@ -1507,7 +1867,6 @@ enum StatusIconRenderer {
         foreground: CGColor
     ) {
         context.setLineWidth(8)
-
         context.setStrokeColor(foreground.copy(alpha: 0.22) ?? foreground)
         context.addPath(StatusIconGeometry.batteryTrack())
         context.strokePath()
@@ -1517,9 +1876,9 @@ enum StatusIconRenderer {
         case .foreground:
             fillColor = foreground
         case .charging:
-            fillColor = CGColor(red: 0.204, green: 0.780, blue: 0.349, alpha: 1)
+            fillColor = CGColor(red: 52.0 / 255.0, green: 199.0 / 255.0, blue: 89.0 / 255.0, alpha: 1)
         case .lowPower:
-            fillColor = CGColor(red: 0.949, green: 0.725, blue: 0.0, alpha: 1)
+            fillColor = CGColor(red: 242.0 / 255.0, green: 185.0 / 255.0, blue: 0, alpha: 1)
         }
 
         context.setStrokeColor(fillColor)
@@ -1540,44 +1899,28 @@ enum StatusIconRenderer {
         switch wifi.state {
         case .connected:
             let color = bars == 0 ? mutedColor : foreground
-            for path in StatusIconGeometry.wifiArcs(level: bars) {
-                context.setStrokeColor(color)
-                context.addPath(path)
-                context.strokePath()
-            }
-            context.setFillColor(color)
-            context.addPath(StatusIconGeometry.wifiDot())
-            context.fillPath()
-
+            drawWiFiSignal(level: bars, color: color, in: context)
         case .notAssociated, .off, .unavailable:
-            context.setStrokeColor(mutedColor)
-            for path in StatusIconGeometry.wifiArcs(level: 3) {
-                context.addPath(path)
-                context.strokePath()
-            }
-            context.setFillColor(mutedColor)
-            context.addPath(StatusIconGeometry.wifiDot())
-            context.fillPath()
+            drawWiFiSignal(level: 3, color: mutedColor, in: context)
+
             if wifi.state == .off {
+                context.setStrokeColor(mutedColor)
                 context.setLineWidth(6)
                 context.addPath(StatusIconGeometry.wifiOffSlash())
                 context.strokePath()
             }
-
         case .noInternet:
-            context.setStrokeColor(mutedColor)
-            for path in StatusIconGeometry.wifiArcs(level: 3) {
-                context.addPath(path)
-                context.strokePath()
-            }
+            drawWiFiSignal(level: 3, color: mutedColor, includeDot: false, in: context)
+
             let overlay = StatusIconGeometry.noInternetOverlay()
+            context.setStrokeColor(mutedColor)
             context.setLineWidth(5)
             context.addPath(overlay.stem)
             context.strokePath()
+
             context.setFillColor(mutedColor)
             context.addPath(overlay.dot)
             context.fillPath()
-
         case .hotspot:
             context.setStrokeColor(foreground)
             context.setLineWidth(5)
@@ -1585,11 +1928,28 @@ enum StatusIconRenderer {
                 context.addPath(path)
                 context.strokePath()
             }
-
         case .temporary, .shared:
             // Task 6 adds the temporary and shared overlay paths.
             break
         }
+    }
+
+    private static func drawWiFiSignal(
+        level: Int,
+        color: CGColor,
+        includeDot: Bool = true,
+        in context: CGContext
+    ) {
+        context.setStrokeColor(color)
+        for path in StatusIconGeometry.wifiArcs(level: level) {
+            context.addPath(path)
+            context.strokePath()
+        }
+
+        guard includeDot else { return }
+        context.setFillColor(color)
+        context.addPath(StatusIconGeometry.wifiDot())
+        context.fillPath()
     }
 
     private static func drawVolume(
@@ -1598,17 +1958,17 @@ enum StatusIconRenderer {
         foreground: CGColor
     ) {
         let level = StatusMappings.volumeSteps(scalar: volume.scalar, isMuted: volume.isMuted) ?? 0
+        let hiddenColor = foreground.copy(alpha: 0.22) ?? foreground
+
         for (index, point) in StatusIconGeometry.volumeDots().enumerated() {
-            let isVisible = index < level
-            context.setFillColor(
-                isVisible ? foreground : (foreground.copy(alpha: 0.22) ?? foreground)
-            )
+            context.setFillColor(index < level ? foreground : hiddenColor)
+            let radius = StatusIconGeometry.volumeDotRadius
             context.fillEllipse(
                 in: CGRect(
-                    x: point.x - StatusIconGeometry.volumeDotRadius,
-                    y: point.y - StatusIconGeometry.volumeDotRadius,
-                    width: StatusIconGeometry.volumeDotRadius * 2,
-                    height: StatusIconGeometry.volumeDotRadius * 2
+                    x: point.x - radius,
+                    y: point.y - radius,
+                    width: radius * 2,
+                    height: radius * 2
                 )
             )
         }
@@ -1616,18 +1976,18 @@ enum StatusIconRenderer {
 }
 ```
 
-- [ ] **Step 4: Run renderer and full tests**
+- [x] **Step 4: Run renderer and full tests**
 
 Run:
 
 ```bash
-swift test --filter StatusIconRendererTests
-swift test
+bash scripts/test.sh StatusIconRendererTests
+bash scripts/test.sh
 ```
 
 Expected: both commands pass. If the geometry is visually inverted, update `StatusIconGeometryTests` first with a failing bounding-box assertion, then correct the arc direction.
 
-- [ ] **Step 5: Commit the renderer**
+- [x] **Step 5: Commit the renderer**
 
 ```bash
 git add Sources/StatusTrioCore/UI/Icon/StatusIconRenderer.swift Tests/StatusTrioCoreTests/StatusIconRendererTests.swift
