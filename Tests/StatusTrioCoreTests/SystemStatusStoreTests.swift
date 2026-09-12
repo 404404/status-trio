@@ -75,6 +75,33 @@ final class SystemStatusStoreTests: XCTestCase {
         store.stop()
     }
 
+    func testMakeStoreUsesInjectedMonitors() async {
+        let battery = FakeBatteryMonitor()
+        let store = AppEnvironment.makeStore(
+            batteryMonitor: battery,
+            wifiMonitor: FakeWiFiMonitor(),
+            volumeMonitor: FakeVolumeMonitor()
+        )
+
+        let updateApplied = expectation(description: "injected monitor update applied")
+        var cancellables = Set<AnyCancellable>()
+        store.$snapshot
+            .dropFirst()
+            .sink { snapshot in
+                guard snapshot.battery.percentage == 55 else { return }
+                updateApplied.fulfill()
+            }
+            .store(in: &cancellables)
+
+        store.start()
+        battery.send(makeBattery(percentage: 55))
+        await fulfillment(of: [updateApplied], timeout: 1)
+
+        XCTAssertEqual(store.snapshot.battery.percentage, 55)
+        cancellables.removeAll()
+        store.stop()
+    }
+
     func testStartTwiceStartsEachMonitorExactlyOnce() {
         let battery = FakeBatteryMonitor()
         let wifi = FakeWiFiMonitor()
