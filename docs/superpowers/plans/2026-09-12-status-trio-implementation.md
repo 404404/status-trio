@@ -16,6 +16,7 @@
 - Create the distributable `.app` with `scripts/build-app.sh`, which copies the SwiftPM executable into a minimal app bundle and adds `Info.plist`.
 - Keep every implementation file focused on one responsibility.
 - Run each task with test-first steps and commit after the task passes.
+- Run tests with `bash scripts/test.sh [XCTestFilter]`; it delegates to `swift test` and accepts an optional filter.
 
 ## File Map
 
@@ -64,7 +65,7 @@
 - Create: `Sources/StatusTrioCore/Models/StatusSnapshot.swift`
 - Create: `Tests/StatusTrioCoreTests/StatusSnapshotTests.swift`
 
-- [ ] **Step 1: Write the failing domain model tests**
+- [x] **Step 1: Write the failing domain model tests**
 
 ```swift
 import XCTest
@@ -91,7 +92,7 @@ final class StatusSnapshotTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2: Create the package manifest and run the test to verify it fails**
+- [x] **Step 2: Create the package manifest and run the test to verify it fails**
 
 Create `Package.swift`:
 
@@ -141,7 +142,7 @@ swift test --filter StatusSnapshotTests
 
 Expected: compilation fails because `BatteryStatus`, `WiFiStatus`, `VolumeStatus`, and `StatusSnapshot` do not exist.
 
-- [ ] **Step 3: Implement the domain models**
+- [x] **Step 3: Implement the domain models**
 
 Create `Sources/StatusTrioCore/Models/StatusSnapshot.swift`:
 
@@ -149,11 +150,11 @@ Create `Sources/StatusTrioCore/Models/StatusSnapshot.swift`:
 import Foundation
 
 struct BatteryStatus: Equatable, Sendable {
-    var rawPercentage: Int?
-    var isPresent: Bool
-    var isCharging: Bool
-    var isLowPowerMode: Bool
-    var isConnectedToPower: Bool
+    let rawPercentage: Int?
+    let isPresent: Bool
+    let isCharging: Bool
+    let isLowPowerMode: Bool
+    let isConnectedToPower: Bool
 
     var percentage: Int {
         guard isPresent else { return 100 }
@@ -182,16 +183,16 @@ enum WiFiState: Equatable, Sendable {
 }
 
 struct WiFiStatus: Equatable, Sendable {
-    var state: WiFiState
-    var rssi: Int?
+    let state: WiFiState
+    let rssi: Int?
 
     static let placeholder = WiFiStatus(state: .unavailable, rssi: nil)
 }
 
 struct VolumeStatus: Equatable, Sendable {
-    var scalar: Double?
-    var isMuted: Bool
-    var deviceName: String?
+    let scalar: Double?
+    let isMuted: Bool
+    let deviceName: String?
 
     static let placeholder = VolumeStatus(
         scalar: nil,
@@ -201,9 +202,9 @@ struct VolumeStatus: Equatable, Sendable {
 }
 
 struct StatusSnapshot: Equatable, Sendable {
-    var battery: BatteryStatus
-    var wifi: WiFiStatus
-    var volume: VolumeStatus
+    let battery: BatteryStatus
+    let wifi: WiFiStatus
+    let volume: VolumeStatus
 
     static let placeholder = StatusSnapshot(
         battery: .placeholder,
@@ -213,7 +214,7 @@ struct StatusSnapshot: Equatable, Sendable {
 }
 ```
 
-- [ ] **Step 4: Run the focused tests and then the full suite**
+- [x] **Step 4: Run the focused tests and then the full suite**
 
 Run:
 
@@ -224,7 +225,7 @@ swift test
 
 Expected: both commands pass.
 
-- [ ] **Step 5: Commit the package foundation**
+- [x] **Step 5: Commit the package foundation**
 
 ```bash
 git add Package.swift status-menubar.svg status-menubar-demo.html Sources/StatusTrioCore Tests/StatusTrioCoreTests
@@ -274,14 +275,32 @@ final class StatusMappingsTests: XCTestCase {
     }
 
     func testBatteryColorPriority() {
-        var battery = BatteryStatus.placeholder
-        XCTAssertEqual(StatusMappings.batteryColorRole(battery), .foreground)
+        let normal = BatteryStatus(
+            rawPercentage: 100,
+            isPresent: true,
+            isCharging: false,
+            isLowPowerMode: false,
+            isConnectedToPower: false
+        )
+        XCTAssertEqual(StatusMappings.batteryColorRole(normal), .foreground)
 
-        battery.isLowPowerMode = true
-        XCTAssertEqual(StatusMappings.batteryColorRole(battery), .lowPower)
+        let lowPower = BatteryStatus(
+            rawPercentage: 100,
+            isPresent: true,
+            isCharging: false,
+            isLowPowerMode: true,
+            isConnectedToPower: false
+        )
+        XCTAssertEqual(StatusMappings.batteryColorRole(lowPower), .lowPower)
 
-        battery.isCharging = true
-        XCTAssertEqual(StatusMappings.batteryColorRole(battery), .charging)
+        let charging = BatteryStatus(
+            rawPercentage: 100,
+            isPresent: true,
+            isCharging: true,
+            isLowPowerMode: true,
+            isConnectedToPower: true
+        )
+        XCTAssertEqual(StatusMappings.batteryColorRole(charging), .charging)
     }
 }
 ```
@@ -617,21 +636,15 @@ final class SystemStatusStore: ObservableObject {
 
 private extension StatusSnapshot {
     func replacingBattery(_ value: BatteryStatus) -> StatusSnapshot {
-        var copy = self
-        copy.battery = value
-        return copy
+        StatusSnapshot(battery: value, wifi: wifi, volume: volume)
     }
 
     func replacingWiFi(_ value: WiFiStatus) -> StatusSnapshot {
-        var copy = self
-        copy.wifi = value
-        return copy
+        StatusSnapshot(battery: battery, wifi: value, volume: volume)
     }
 
     func replacingVolume(_ value: VolumeStatus) -> StatusSnapshot {
-        var copy = self
-        copy.volume = value
-        return copy
+        StatusSnapshot(battery: battery, wifi: wifi, volume: value)
     }
 }
 ```
@@ -910,13 +923,16 @@ final class StatusIconRendererTests: XCTestCase {
     }
 
     func testChargingStateDrawsGreenPixels() throws {
-        var snapshot = StatusSnapshot.placeholder
-        snapshot.battery = BatteryStatus(
-            rawPercentage: 50,
-            isPresent: true,
-            isCharging: true,
-            isLowPowerMode: false,
-            isConnectedToPower: true
+        let snapshot = StatusSnapshot(
+            battery: BatteryStatus(
+                rawPercentage: 50,
+                isPresent: true,
+                isCharging: true,
+                isLowPowerMode: false,
+                isConnectedToPower: true
+            ),
+            wifi: .placeholder,
+            volume: .placeholder
         )
 
         let pixels = try PixelBuffer(
@@ -932,8 +948,11 @@ final class StatusIconRendererTests: XCTestCase {
     }
 
     func testOffStateUsesMutedSignalAndSlash() throws {
-        var snapshot = StatusSnapshot.placeholder
-        snapshot.wifi = WiFiStatus(state: .off, rssi: nil)
+        let snapshot = StatusSnapshot(
+            battery: .placeholder,
+            wifi: WiFiStatus(state: .off, rssi: nil),
+            volume: .placeholder
+        )
 
         let image = StatusIconRenderer.render(
             snapshot: snapshot,
@@ -947,13 +966,16 @@ final class StatusIconRendererTests: XCTestCase {
     }
 
     func testLowPowerStateDrawsYellowPixels() throws {
-        var snapshot = StatusSnapshot.placeholder
-        snapshot.battery = BatteryStatus(
-            rawPercentage: 50,
-            isPresent: true,
-            isCharging: false,
-            isLowPowerMode: true,
-            isConnectedToPower: false
+        let snapshot = StatusSnapshot(
+            battery: BatteryStatus(
+                rawPercentage: 50,
+                isPresent: true,
+                isCharging: false,
+                isLowPowerMode: true,
+                isConnectedToPower: false
+            ),
+            wifi: .placeholder,
+            volume: .placeholder
         )
 
         let pixels = try PixelBuffer(
@@ -1269,8 +1291,11 @@ Append to `StatusIconRendererTests`:
 ```swift
     func testTemporaryAndSharedStatesProducePixels() {
         for state in [WiFiState.temporary, .shared] {
-            var snapshot = StatusSnapshot.placeholder
-            snapshot.wifi = WiFiStatus(state: state, rssi: -50)
+            let snapshot = StatusSnapshot(
+                battery: .placeholder,
+                wifi: WiFiStatus(state: state, rssi: -50),
+                volume: .placeholder
+            )
             let image = StatusIconRenderer.render(
                 snapshot: snapshot,
                 size: 20,
@@ -1762,16 +1787,32 @@ import XCTest
 
 final class StatusPresentationTests: XCTestCase {
     func testBatterySubtitlePriority() {
-        var battery = BatteryStatus.placeholder
-        battery.isConnectedToPower = true
-        XCTAssertEqual(StatusPresentation.batterySubtitle(battery), "已连接电源")
+        let connected = BatteryStatus(
+            rawPercentage: 100,
+            isPresent: true,
+            isCharging: false,
+            isLowPowerMode: false,
+            isConnectedToPower: true
+        )
+        XCTAssertEqual(StatusPresentation.batterySubtitle(connected), "已连接电源")
 
-        battery.isCharging = true
-        XCTAssertEqual(StatusPresentation.batterySubtitle(battery), "正在充电")
+        let charging = BatteryStatus(
+            rawPercentage: 100,
+            isPresent: true,
+            isCharging: true,
+            isLowPowerMode: false,
+            isConnectedToPower: true
+        )
+        XCTAssertEqual(StatusPresentation.batterySubtitle(charging), "正在充电")
 
-        battery = .placeholder
-        battery.isLowPowerMode = true
-        XCTAssertEqual(StatusPresentation.batterySubtitle(battery), "低电量模式")
+        let lowPower = BatteryStatus(
+            rawPercentage: 100,
+            isPresent: true,
+            isCharging: false,
+            isLowPowerMode: true,
+            isConnectedToPower: false
+        )
+        XCTAssertEqual(StatusPresentation.batterySubtitle(lowPower), "低电量模式")
     }
 
     func testVolumeSubtitleAndValue() {
