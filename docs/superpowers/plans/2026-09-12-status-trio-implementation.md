@@ -2526,7 +2526,7 @@ git commit -m "feat: add menu bar app shell"
 - Modify: `Sources/StatusTrioCore/UI/StatusBarController.swift`
 - Create: `Tests/StatusTrioCoreTests/StatusPresentationTests.swift`
 
-- [ ] **Step 1: Write failing presentation tests**
+- [x] **Step 1: Write failing presentation tests**
 
 Create `Tests/StatusTrioCoreTests/StatusPresentationTests.swift`:
 
@@ -2536,58 +2536,187 @@ import XCTest
 
 final class StatusPresentationTests: XCTestCase {
     func testBatterySubtitlePriority() {
-        let connected = BatteryStatus(
-            rawPercentage: 100,
-            isPresent: true,
-            isCharging: false,
-            isLowPowerMode: false,
-            isConnectedToPower: true
+        XCTAssertEqual(
+            StatusPresentation.batterySubtitle(
+                makeBattery(
+                    isPresent: false,
+                    isCharging: true,
+                    isLowPowerMode: true,
+                    isConnectedToPower: true
+                )
+            ),
+            "无电池设备"
         )
-        XCTAssertEqual(StatusPresentation.batterySubtitle(connected), "已连接电源")
-
-        let charging = BatteryStatus(
-            rawPercentage: 100,
-            isPresent: true,
-            isCharging: true,
-            isLowPowerMode: false,
-            isConnectedToPower: true
+        XCTAssertEqual(
+            StatusPresentation.batterySubtitle(makeBattery(isCharging: true, isLowPowerMode: true, isConnectedToPower: true)),
+            "正在充电"
         )
-        XCTAssertEqual(StatusPresentation.batterySubtitle(charging), "正在充电")
-
-        let lowPower = BatteryStatus(
-            rawPercentage: 100,
-            isPresent: true,
-            isCharging: false,
-            isLowPowerMode: true,
-            isConnectedToPower: false
+        XCTAssertEqual(
+            StatusPresentation.batterySubtitle(makeBattery(isLowPowerMode: true, isConnectedToPower: true)),
+            "低电量模式"
         )
-        XCTAssertEqual(StatusPresentation.batterySubtitle(lowPower), "低电量模式")
+        XCTAssertEqual(
+            StatusPresentation.batterySubtitle(makeBattery(isConnectedToPower: true)),
+            "已连接电源"
+        )
+        XCTAssertEqual(
+            StatusPresentation.batterySubtitle(makeBattery()),
+            "电池供电"
+        )
     }
 
-    func testVolumeSubtitleAndValue() {
+    func testWiFiValueAndSubtitleForEveryState() {
+        let cases: [(WiFiStatus, String, String)] = [
+            (WiFiStatus(state: .connected, rssi: -55), "3 格", "已连接"),
+            (WiFiStatus(state: .notAssociated, rssi: nil), "未关联", "Wi-Fi 开启，未关联"),
+            (WiFiStatus(state: .off, rssi: nil), "关闭", "Wi-Fi 关闭或不可用"),
+            (WiFiStatus(state: .noInternet, rssi: nil), "无互联网", "网络可达性检查失败"),
+            (WiFiStatus(state: .hotspot, rssi: nil), "iPhone 热点", "使用 iPhone 热点"),
+            (WiFiStatus(state: .temporary, rssi: nil), "临时连接", "临时 Wi-Fi 连接"),
+            (WiFiStatus(state: .shared, rssi: nil), "正在共享", "正在共享互联网"),
+            (WiFiStatus(state: .unavailable, rssi: nil), "不可用", "无法读取网络状态")
+        ]
+
+        for (wifi, expectedValue, expectedSubtitle) in cases {
+            XCTAssertEqual(
+                StatusPresentation.wifiValue(wifi),
+                expectedValue,
+                "value for \(wifi.state)"
+            )
+            XCTAssertEqual(
+                StatusPresentation.wifiSubtitle(wifi),
+                expectedSubtitle,
+                "subtitle for \(wifi.state)"
+            )
+        }
+    }
+
+    func testSettingsPlaceholder() {
+        XCTAssertEqual(StatusPresentation.settingsPlaceholder, "设置… · 即将推出")
+    }
+
+    func testVolumeValueForNilMutedAndNormalStates() {
         XCTAssertEqual(
-            StatusPresentation.volumeValue(VolumeStatus(scalar: nil, isMuted: false, deviceName: nil)),
+            StatusPresentation.volumeValue(
+                VolumeStatus(scalar: nil, isMuted: false, deviceName: nil)
+            ),
             "—"
         )
         XCTAssertEqual(
-            StatusPresentation.volumeValue(VolumeStatus(scalar: 0.62, isMuted: false, deviceName: "Speaker")),
+            StatusPresentation.volumeValue(
+                VolumeStatus(scalar: 0.62, isMuted: true, deviceName: "Speaker")
+            ),
+            "静音"
+        )
+        XCTAssertEqual(
+            StatusPresentation.volumeValue(
+                VolumeStatus(scalar: 0.62, isMuted: false, deviceName: "Speaker")
+            ),
             "62% · 3 格"
+        )
+        XCTAssertEqual(
+            StatusPresentation.volumeValue(
+                VolumeStatus(scalar: 0.625, isMuted: false, deviceName: "Speaker")
+            ),
+            "63% · 3 格"
+        )
+    }
+
+    func testVolumeValueRejectsNonFiniteScalars() {
+        let cases: [Double] = [.nan, .infinity, -.infinity]
+
+        for scalar in cases {
+            XCTAssertEqual(
+                StatusPresentation.volumeValue(
+                    VolumeStatus(scalar: scalar, isMuted: false, deviceName: "Speaker")
+                ),
+                "—",
+                "value for \(scalar)"
+            )
+        }
+    }
+
+    func testVolumeValueClampsFiniteScalars() {
+        XCTAssertEqual(
+            StatusPresentation.volumeValue(
+                VolumeStatus(scalar: -0.5, isMuted: false, deviceName: "Speaker")
+            ),
+            "0% · 0 格"
+        )
+        XCTAssertEqual(
+            StatusPresentation.volumeValue(
+                VolumeStatus(scalar: 1.5, isMuted: false, deviceName: "Speaker")
+            ),
+            "100% · 4 格"
+        )
+    }
+
+    func testVolumeValueStepMapping() {
+        let cases: [(Double, Int)] = [
+            (0.00, 0),
+            (0.01, 1),
+            (0.25, 1),
+            (0.26, 2),
+            (0.50, 2),
+            (0.51, 3),
+            (0.75, 3),
+            (0.76, 4),
+            (1.00, 4)
+        ]
+
+        for (scalar, steps) in cases {
+            XCTAssertEqual(
+                StatusPresentation.volumeValue(
+                    VolumeStatus(scalar: scalar, isMuted: false, deviceName: "Speaker")
+                ),
+                "\(Int((scalar * 100).rounded()))% · \(steps) 格"
+            )
+        }
+    }
+
+    func testVolumeSubtitleUsesDeviceNameOrFallback() {
+        XCTAssertEqual(
+            StatusPresentation.volumeSubtitle(
+                VolumeStatus(scalar: 0.5, isMuted: false, deviceName: "MacBook Speakers")
+            ),
+            "MacBook Speakers"
+        )
+        XCTAssertEqual(
+            StatusPresentation.volumeSubtitle(
+                VolumeStatus(scalar: 0.5, isMuted: false, deviceName: nil)
+            ),
+            "无默认输出设备"
+        )
+    }
+
+    private func makeBattery(
+        isPresent: Bool = true,
+        isCharging: Bool = false,
+        isLowPowerMode: Bool = false,
+        isConnectedToPower: Bool = false
+    ) -> BatteryStatus {
+        BatteryStatus(
+            rawPercentage: 100,
+            isPresent: isPresent,
+            isCharging: isCharging,
+            isLowPowerMode: isLowPowerMode,
+            isConnectedToPower: isConnectedToPower
         )
     }
 }
 ```
 
-- [ ] **Step 2: Run the presentation test to verify it fails**
+- [x] **Step 2: Run the presentation test to verify it fails**
 
 Run:
 
 ```bash
-swift test --filter StatusPresentationTests
+bash scripts/test.sh StatusPresentationTests
 ```
 
 Expected: compilation fails because `StatusPresentation` does not exist.
 
-- [ ] **Step 3: Implement presentation helpers and the SwiftUI view**
+- [x] **Step 3: Implement presentation helpers and the SwiftUI view**
 
 Create `Sources/StatusTrioCore/UI/StatusPopoverView.swift`:
 
@@ -2595,6 +2724,8 @@ Create `Sources/StatusTrioCore/UI/StatusPopoverView.swift`:
 import SwiftUI
 
 enum StatusPresentation {
+    static let settingsPlaceholder = "设置… · 即将推出"
+
     static func batterySubtitle(_ battery: BatteryStatus) -> String {
         if !battery.isPresent { return "无电池设备" }
         if battery.isCharging { return "正在充电" }
@@ -2646,9 +2777,13 @@ enum StatusPresentation {
     }
 
     static func volumeValue(_ volume: VolumeStatus) -> String {
-        guard let scalar = volume.scalar else { return "—" }
-        let percentage = Int((min(1, max(0, scalar)) * 100).rounded())
-        let steps = StatusMappings.volumeSteps(scalar: scalar, isMuted: volume.isMuted) ?? 0
+        guard let scalar = volume.scalar, scalar.isFinite else { return "—" }
+        let clampedScalar = min(1, max(0, scalar))
+        let percentage = Int((clampedScalar * 100).rounded())
+        let steps = StatusMappings.volumeSteps(
+            scalar: clampedScalar,
+            isMuted: volume.isMuted
+        ) ?? 0
         return volume.isMuted ? "静音" : "\(percentage)% · \(steps) 格"
     }
 
@@ -2686,7 +2821,7 @@ struct StatusPopoverView: View {
 
             Divider()
 
-            Button("设置…") {}
+            Button(StatusPresentation.settingsPlaceholder) {}
                 .buttonStyle(.plain)
                 .disabled(true)
                 .foregroundStyle(.secondary)
@@ -2716,6 +2851,8 @@ struct StatusPopoverView: View {
                 Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
             Spacer()
             Text(value)
@@ -2725,7 +2862,7 @@ struct StatusPopoverView: View {
 }
 ```
 
-- [ ] **Step 4: Wire left click to an anchored popover**
+- [x] **Step 4: Wire left click to an anchored popover**
 
 Add to `StatusBarController`:
 
@@ -2734,10 +2871,11 @@ Add to `StatusBarController`:
 
     private func configurePopover() {
         popover.behavior = .transient
-        popover.contentSize = NSSize(width: 300, height: 228)
-        popover.contentViewController = NSHostingController(
+        let hostingController = NSHostingController(
             rootView: StatusPopoverView(store: store, quit: quitAction)
         )
+        hostingController.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = hostingController
     }
 
     private func togglePopover() {
@@ -2756,12 +2894,12 @@ Add to `StatusBarController`:
 
 Call `configurePopover()` after `configureButton()` and replace the `.left` branch with `togglePopover()`. Add `import SwiftUI` to `StatusBarController.swift`.
 
-- [ ] **Step 5: Run tests, smoke test, and commit**
+- [x] **Step 5: Run tests, smoke test, and commit**
 
 Run:
 
 ```bash
-swift test
+bash scripts/test.sh
 swift build
 swift run StatusTrio
 ```
