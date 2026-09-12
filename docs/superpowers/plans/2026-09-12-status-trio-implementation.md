@@ -934,7 +934,7 @@ git commit -m "feat: add monitor contracts and status store"
 - Create: `Sources/StatusTrioCore/UI/Icon/StatusIconGeometry.swift`
 - Create: `Tests/StatusTrioCoreTests/StatusIconGeometryTests.swift`
 
-- [ ] **Step 1: Write failing geometry tests**
+- [x] **Step 1: Write failing geometry tests**
 
 Create `Tests/StatusTrioCoreTests/StatusIconGeometryTests.swift`:
 
@@ -944,6 +944,19 @@ import XCTest
 @testable import StatusTrioCore
 
 final class StatusIconGeometryTests: XCTestCase {
+    private let wifiOuterBounds = CGRect(
+        x: 38.496939589591584,
+        y: 44.56689658567961,
+        width: 42.006120820816804,
+        height: 10.932413657281575
+    )
+    private let wifiMiddleBounds = CGRect(
+        x: 47.00158115911029,
+        y: 58.7698769103291,
+        width: 24.996837681779425,
+        height: 6.480492358683611
+    )
+
     func testBatteryPathsStayInsideCanvas() {
         let track = StatusIconGeometry.batteryTrack()
         let fill = StatusIconGeometry.batteryFill(progress: 0.5)
@@ -952,33 +965,169 @@ final class StatusIconGeometryTests: XCTestCase {
         XCTAssertTrue(StatusIconGeometry.canvas.contains(fill.boundingBox))
     }
 
+    func testBatteryFullAndHalfProgressBounds() {
+        let track = StatusIconGeometry.batteryTrack()
+        let fill = StatusIconGeometry.batteryFill(progress: 0.5)
+
+        assertPathBounds(
+            track,
+            equals: CGRect(
+                x: 0.7192875296163166,
+                y: 2.7064401474710493,
+                width: 112.78071247038369,
+                height: 85.54355985252894
+            )
+        )
+        assertPathBounds(
+            fill,
+            equals: CGRect(
+                x: 0.7192875296163166,
+                y: 9.987152617854733,
+                width: 58.780712470383676,
+                height: 78.26284738214525
+            )
+        )
+        XCTAssertTrue(track.boundingBox.contains(fill.boundingBox))
+        assertPoint(fill.currentPoint, equals: CGPoint(x: 59.5, y: 9.987152617854733))
+    }
+
     func testZeroBatteryHasNoFillPath() {
         XCTAssertTrue(StatusIconGeometry.batteryFill(progress: 0).isEmpty)
     }
 
-    func testVolumeDotCount() {
-        XCTAssertEqual(StatusIconGeometry.volumeDots().count, 4)
+    func testWiFiLevelBoundaries() {
+        for level in [-1, 0, 1] {
+            XCTAssertTrue(
+                StatusIconGeometry.wifiArcs(level: level).isEmpty,
+                "Level \(level) should not draw Wi-Fi arcs"
+            )
+        }
+
+        let level2 = StatusIconGeometry.wifiArcs(level: 2)
+        XCTAssertEqual(level2.count, 1)
+        assertPathBounds(level2[0], equals: wifiMiddleBounds)
+
+        for level in [3, 4] {
+            let arcs = StatusIconGeometry.wifiArcs(level: level)
+            XCTAssertEqual(arcs.count, 2)
+            assertPathBounds(arcs[0], equals: wifiOuterBounds)
+            assertPathBounds(arcs[1], equals: wifiMiddleBounds)
+        }
+    }
+
+    func testWiFiArcBounds() {
+        assertPathBounds(StatusIconGeometry.wifiOuterArc(), equals: wifiOuterBounds)
+
+        let middleArcs = StatusIconGeometry.wifiArcs(level: 2)
+        XCTAssertEqual(middleArcs.count, 1)
+        assertPathBounds(middleArcs[0], equals: wifiMiddleBounds)
+    }
+
+    func testWiFiDotBounds() {
+        assertPathBounds(
+            StatusIconGeometry.wifiDot(),
+            equals: CGRect(x: 52.3, y: 69.9, width: 14.4, height: 11.05)
+        )
+    }
+
+    func testWiFiOffSlashBounds() {
+        assertPathBounds(
+            StatusIconGeometry.wifiOffSlash(),
+            equals: CGRect(x: 39, y: 46, width: 42, height: 33)
+        )
+    }
+
+    func testNoInternetOverlayBounds() {
+        let overlay = StatusIconGeometry.noInternetOverlay()
+
+        assertPathBounds(
+            overlay.stem,
+            equals: CGRect(x: 59.5, y: 54.5, width: 0, height: 12.5)
+        )
+        assertPathBounds(
+            overlay.dot,
+            equals: CGRect(x: 56.9, y: 72.9, width: 5.2, height: 5.2)
+        )
+    }
+
+    func testHotspotOverlayBounds() {
+        let paths = StatusIconGeometry.hotspotOverlay()
+        XCTAssertEqual(paths.count, 3)
+
+        assertPathBounds(paths[0], equals: CGRect(x: 41, y: 50, width: 13, height: 16))
+        assertPathBounds(paths[1], equals: CGRect(x: 65, y: 50, width: 13, height: 16))
+        assertPathBounds(paths[2], equals: CGRect(x: 51, y: 58, width: 17, height: 0))
+    }
+
+    func testVolumeDots() {
+        let dots = StatusIconGeometry.volumeDots()
+        let expected = [
+            CGPoint(x: 33, y: 104.2),
+            CGPoint(x: 50.5, y: 111.2),
+            CGPoint(x: 68.5, y: 111.7),
+            CGPoint(x: 86, y: 105.8)
+        ]
+
+        XCTAssertEqual(dots.count, expected.count)
+        for (dot, expectedDot) in zip(dots, expected) {
+            assertPoint(dot, equals: expectedDot)
+        }
+        XCTAssertEqual(StatusIconGeometry.volumeDotRadius, 5.5, accuracy: 0.01)
+    }
+
+    private func assertPathBounds(
+        _ path: CGPath,
+        equals expected: CGRect,
+        accuracy: CGFloat = 0.01,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        assertBounds(path.boundingBox, equals: expected, accuracy: accuracy, file: file, line: line)
+    }
+
+    private func assertBounds(
+        _ actual: CGRect,
+        equals expected: CGRect,
+        accuracy: CGFloat = 0.01,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertEqual(actual.minX, expected.minX, accuracy: accuracy, file: file, line: line)
+        XCTAssertEqual(actual.minY, expected.minY, accuracy: accuracy, file: file, line: line)
+        XCTAssertEqual(actual.width, expected.width, accuracy: accuracy, file: file, line: line)
+        XCTAssertEqual(actual.height, expected.height, accuracy: accuracy, file: file, line: line)
+    }
+
+    private func assertPoint(
+        _ actual: CGPoint,
+        equals expected: CGPoint,
+        accuracy: CGFloat = 0.01,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertEqual(actual.x, expected.x, accuracy: accuracy, file: file, line: line)
+        XCTAssertEqual(actual.y, expected.y, accuracy: accuracy, file: file, line: line)
     }
 }
 
 private extension CGRect {
     func contains(_ other: CGRect) -> Bool {
-        insetBy(dx: -0.01, dy: -0.01).contains(other)
+        CGRectContainsRect(insetBy(dx: -0.01, dy: -0.01), other)
     }
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
 ```bash
-swift test --filter StatusIconGeometryTests
+bash scripts/test.sh StatusIconGeometryTests
 ```
 
 Expected: compilation fails because `StatusIconGeometry` does not exist.
 
-- [ ] **Step 3: Implement the path builder**
+- [x] **Step 3: Implement the path builder**
 
 Create `Sources/StatusTrioCore/UI/Icon/StatusIconGeometry.swift`:
 
@@ -989,10 +1138,16 @@ import Foundation
 enum StatusIconGeometry {
     static let canvas = CGRect(x: 0, y: 0, width: 120, height: 120)
 
+    // Derived from the SVG battery endpoints and radius.
     private static let batteryRadius: CGFloat = 51.5
-    private static let batteryCenter = CGPoint(x: 59.5, y: 61.49)
-    private static let batteryStart: CGFloat = 148.65 * .pi / 180
-    private static let batterySweep: CGFloat = 242.7 * .pi / 180
+    private static let batteryCenter = CGPoint(x: 59.5, y: 61.48715261785473)
+    private static let batteryStart: CGFloat = 148.69008689281117 * .pi / 180
+    private static let batterySweep: CGFloat = 242.6198262143777 * .pi / 180
+
+    private static let wifiOuterCenter = CGPoint(x: 59.5, y: 78.3)
+    private static let wifiOuterRadius: CGFloat = 31
+    private static let wifiOuterStart: CGFloat = 227.35 * .pi / 180
+    private static let wifiOuterEnd: CGFloat = 312.65 * .pi / 180
 
     static func batteryTrack() -> CGPath {
         batteryArc(progress: 1)
@@ -1005,60 +1160,45 @@ enum StatusIconGeometry {
     }
 
     static func wifiArcs(level: Int) -> [CGPath] {
-        let outer = arc(
-            center: CGPoint(x: 59.5, y: 78.3),
-            radius: 31,
-            start: 227.35 * .pi / 180,
-            end: 312.65 * .pi / 180
-        )
+        let bars = min(3, max(0, level))
         let middle = arc(
             center: CGPoint(x: 59.5, y: 78.89),
             radius: 18.5,
             start: 227.5 * .pi / 180,
             end: 312.5 * .pi / 180
         )
-        let all = [outer, middle]
-        switch level {
-        case 3: return all
-        case 2: return [middle]
-        case 1: return []
-        default: return []
+
+        switch bars {
+        case 3:
+            return [wifiOuterArc(), middle]
+        case 2:
+            return [middle]
+        case 1:
+            // Level 1 intentionally returns no arcs because the dot is drawn separately.
+            return []
+        default:
+            return []
         }
+    }
+
+    static func wifiOuterArc() -> CGPath {
+        arc(
+            center: wifiOuterCenter,
+            radius: wifiOuterRadius,
+            start: wifiOuterStart,
+            end: wifiOuterEnd
+        )
     }
 
     static func wifiDot() -> CGPath {
         let path = CGMutablePath()
         path.move(to: CGPoint(x: 59.5, y: 69.9))
-        path.addCurve(
-            to: CGPoint(x: 66.5, y: 73),
-            control1: CGPoint(x: 61.0, y: 69.9),
-            control2: CGPoint(x: 65.2, y: 70.8)
-        )
-        path.addCurve(
-            to: CGPoint(x: 66.5, y: 75),
-            control1: CGPoint(x: 66.7, y: 73.8),
-            control2: CGPoint(x: 66.7, y: 74.3)
-        )
-        path.addCurve(
-            to: CGPoint(x: 59.5, y: 80.95),
-            control1: CGPoint(x: 63.8, y: 78.8),
-            control2: CGPoint(x: 61.15, y: 80.95)
-        )
-        path.addCurve(
-            to: CGPoint(x: 52.5, y: 75),
-            control1: CGPoint(x: 57.85, y: 80.95),
-            control2: CGPoint(x: 55.2, y: 78.8)
-        )
-        path.addCurve(
-            to: CGPoint(x: 52.5, y: 73),
-            control1: CGPoint(x: 52.3, y: 74.3),
-            control2: CGPoint(x: 52.3, y: 73.8)
-        )
-        path.addCurve(
-            to: CGPoint(x: 59.5, y: 69.9),
-            control1: CGPoint(x: 53.8, y: 70.8),
-            control2: CGPoint(x: 58.0, y: 69.9)
-        )
+        path.addCurve(to: CGPoint(x: 66.5, y: 73), control1: CGPoint(x: 61.0, y: 69.9), control2: CGPoint(x: 65.2, y: 70.8))
+        path.addCurve(to: CGPoint(x: 66.5, y: 75), control1: CGPoint(x: 66.7, y: 73.8), control2: CGPoint(x: 66.7, y: 74.3))
+        path.addCurve(to: CGPoint(x: 59.5, y: 80.95), control1: CGPoint(x: 63.8, y: 78.8), control2: CGPoint(x: 61.15, y: 80.95))
+        path.addCurve(to: CGPoint(x: 52.5, y: 75), control1: CGPoint(x: 57.85, y: 80.95), control2: CGPoint(x: 55.2, y: 78.8))
+        path.addCurve(to: CGPoint(x: 52.5, y: 73), control1: CGPoint(x: 52.3, y: 74.3), control2: CGPoint(x: 52.3, y: 73.8))
+        path.addCurve(to: CGPoint(x: 59.5, y: 69.9), control1: CGPoint(x: 53.8, y: 70.8), control2: CGPoint(x: 58.0, y: 69.9))
         path.closeSubpath()
         return path
     }
@@ -1084,13 +1224,13 @@ enum StatusIconGeometry {
         let left = CGMutablePath()
         left.move(to: CGPoint(x: 53, y: 66))
         left.addLine(to: CGPoint(x: 49, y: 66))
-        left.addArc(center: CGPoint(x: 49, y: 58), radius: 8, startAngle: .pi / 2, endAngle: -.pi / 2, clockwise: true)
+        left.addArc(center: CGPoint(x: 49, y: 58), radius: 8, startAngle: .pi / 2, endAngle: 3 * .pi / 2, clockwise: false)
         left.addLine(to: CGPoint(x: 54, y: 50))
 
         let right = CGMutablePath()
         right.move(to: CGPoint(x: 66, y: 50))
         right.addLine(to: CGPoint(x: 70, y: 50))
-        right.addArc(center: CGPoint(x: 70, y: 58), radius: 8, startAngle: 3 * .pi / 2, endAngle: -.pi / 2, clockwise: true)
+        right.addArc(center: CGPoint(x: 70, y: 58), radius: 8, startAngle: 3 * .pi / 2, endAngle: 5 * .pi / 2, clockwise: false)
         right.addLine(to: CGPoint(x: 65, y: 66))
 
         let bridge = CGMutablePath()
@@ -1122,30 +1262,24 @@ enum StatusIconGeometry {
         end: CGFloat
     ) -> CGPath {
         let path = CGMutablePath()
-        path.addArc(
-            center: center,
-            radius: radius,
-            startAngle: start,
-            endAngle: end,
-            clockwise: false
-        )
+        path.addArc(center: center, radius: radius, startAngle: start, endAngle: end, clockwise: false)
         return path
     }
 }
 ```
 
-- [ ] **Step 4: Run geometry and full tests**
+- [x] **Step 4: Run geometry and full tests**
 
 Run:
 
 ```bash
-swift test --filter StatusIconGeometryTests
-swift test
+bash scripts/test.sh StatusIconGeometryTests
+bash scripts/test.sh
 ```
 
 Expected: both commands pass.
 
-- [ ] **Step 5: Commit geometry**
+- [x] **Step 5: Commit geometry**
 
 ```bash
 git add Sources/StatusTrioCore/UI/Icon/StatusIconGeometry.swift Tests/StatusTrioCoreTests/StatusIconGeometryTests.swift
