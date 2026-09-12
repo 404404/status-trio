@@ -104,8 +104,12 @@ final class StatusBarController: NSObject {
         )
     }
 
+    private static var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0"
+    }
+
     private func showMenu() {
-        let menu = StatusMenuBuilder.makeMenu(version: "1.0.0")
+        let menu = StatusMenuBuilder.makeMenu(version: Self.appVersion)
         guard let button = statusItem.button else { return }
         menu.popUp(
             positioning: nil,

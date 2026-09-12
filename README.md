@@ -6,7 +6,7 @@ Status Trio is a native macOS menu bar app that combines battery, Wi-Fi, and vol
 
 > Status Trio is an independent project and is not affiliated with Apple.
 
-## Planned features
+## Features
 
 - One 20 pt menu bar icon for battery, Wi-Fi, and volume.
 - Battery percentage, charging state, and Low Power Mode.
@@ -18,7 +18,7 @@ Status Trio is a native macOS menu bar app that combines battery, Wi-Fi, and vol
 
 ## Status
 
-The project is currently in the design phase. The implementation plan and app source will follow after the specification is reviewed.
+Status Trio is implemented as a Swift Package. See Development and Build a local app bundle below for the current commands.
 
 ## Specification
 
@@ -36,3 +36,39 @@ The project is currently in the design phase. The implementation plan and app so
 
 - [SVG source](status-menubar.svg)
 - [Data-driven demo](status-menubar-demo.html)
+
+## Development
+
+Run the test suite:
+
+```bash
+swift test
+```
+
+An optional XCTest filter can be passed through the test helper:
+
+```bash
+bash scripts/test.sh BatteryMonitorTests
+```
+
+Run the app directly from the Swift package:
+
+```bash
+swift run StatusTrio
+```
+
+## Build a local app bundle
+
+Build an ad-hoc-signed local app bundle:
+
+```bash
+bash scripts/build-app.sh release
+```
+
+This creates `dist/StatusTrio.app` and opens it by default. In open mode, the script asks any existing `com.lingsmbp.StatusTrio` instance to quit and waits briefly before launching the freshly built bundle. Pass `no-open` as the second argument to only build without quitting or launching an app:
+
+```bash
+bash scripts/build-app.sh release no-open
+```
+
+The ad-hoc-signed bundle is intended for local personal use. Gatekeeper may reject it if the bundle is transferred with quarantine metadata.
