@@ -151,6 +151,28 @@ final class BatteryMonitorTests: XCTestCase {
         monitor.stop()
     }
 
+    func testNilIOPSNotificationSourceStillRefreshesAndStops() async {
+        let reader = FakeBatteryReader(result: makeReading(percentage: 64))
+        let monitor = BatteryMonitor(
+            reader: reader,
+            lowPowerModeProvider: { false },
+            iopsRunLoopSourceFactory: { _, _ in nil }
+        )
+
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        let value = await iterator.next()
+
+        XCTAssertEqual(value?.percentage, 64)
+        XCTAssertEqual(reader.readCount, 1)
+
+        monitor.stop()
+        let stoppedValue = await iterator.next()
+
+        XCTAssertNil(stoppedValue)
+        XCTAssertEqual(reader.readCount, 1)
+    }
+
     func testStartAndStopAreIdempotent() {
         let reader = FakeBatteryReader(result: makeReading(percentage: 50))
         let harness = IOPSNotificationSourceHarness()

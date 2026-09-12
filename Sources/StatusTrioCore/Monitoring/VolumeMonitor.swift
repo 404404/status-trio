@@ -3,7 +3,7 @@ import Foundation
 import os
 
 private let volumeMonitorLogger = Logger(
-    subsystem: "StatusTrio",
+    subsystem: "com.lingsmbp.StatusTrio",
     category: "VolumeMonitor"
 )
 

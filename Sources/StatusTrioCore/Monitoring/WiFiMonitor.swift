@@ -5,7 +5,7 @@ import SystemConfiguration
 import os
 
 private let wifiMonitorLogger = Logger(
-    subsystem: "StatusTrio",
+    subsystem: "com.lingsmbp.StatusTrio",
     category: "WiFiMonitor"
 )
 

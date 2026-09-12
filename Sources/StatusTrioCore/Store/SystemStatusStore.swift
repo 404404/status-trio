@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 
@@ -10,8 +11,10 @@ final class SystemStatusStore: ObservableObject {
     private let volumeMonitor: any VolumeMonitoring
     private let refreshInterval: Duration
     private let sleep: @Sendable (Duration) async throws -> Void
+    private let wakeNotificationCenter: NotificationCenter
     private var monitorTasks: [Task<Void, Never>] = []
     private var refreshTask: Task<Void, Never>?
+    private var wakeObserver: NSObjectProtocol?
     private var lastPublishedSnapshot: StatusSnapshot?
     private var hasStarted = false
     private var hasStopped = false
@@ -24,6 +27,7 @@ final class SystemStatusStore: ObservableObject {
         sleep: @escaping @Sendable (Duration) async throws -> Void = {
             try await Task.sleep(for: $0)
         },
+        wakeNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
         initialSnapshot: StatusSnapshot = .placeholder
     ) {
         self.batteryMonitor = batteryMonitor
@@ -31,12 +35,23 @@ final class SystemStatusStore: ObservableObject {
         self.volumeMonitor = volumeMonitor
         self.refreshInterval = refreshInterval
         self.sleep = sleep
+        self.wakeNotificationCenter = wakeNotificationCenter
         self.snapshot = initialSnapshot
     }
 
     func start() {
         guard !hasStarted, !hasStopped else { return }
         hasStarted = true
+
+        wakeObserver = wakeNotificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.refreshAll()
+            }
+        }
 
         batteryMonitor.start()
         wifiMonitor.start()
@@ -80,6 +95,11 @@ final class SystemStatusStore: ObservableObject {
     func stop() {
         guard !hasStopped else { return }
         hasStopped = true
+
+        if let wakeObserver {
+            wakeNotificationCenter.removeObserver(wakeObserver)
+            self.wakeObserver = nil
+        }
 
         batteryMonitor.stop()
         wifiMonitor.stop()

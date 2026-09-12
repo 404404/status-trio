@@ -1,5 +1,11 @@
 import Foundation
 import IOKit.ps
+import OSLog
+
+private let batteryMonitorLogger = Logger(
+    subsystem: "com.lingsmbp.StatusTrio",
+    category: "battery"
+)
 
 struct BatteryReading: Equatable {
     var currentCapacity: Int
@@ -135,6 +141,10 @@ final class BatteryMonitor: BatteryMonitoring {
         if let source = iopsRunLoopSourceFactory(context.toOpaque(), callback) {
             runLoopSource = source
             CFRunLoopAddSource(CFRunLoopGetMain(), source, .defaultMode)
+        } else {
+            batteryMonitorLogger.error(
+                "IOPS notification source unavailable; fallback refresh remains active"
+            )
         }
 
         lowPowerObserver = NotificationCenter.default.addObserver(

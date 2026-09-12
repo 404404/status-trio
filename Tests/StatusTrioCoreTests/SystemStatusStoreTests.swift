@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import XCTest
 @testable import StatusTrioCore
@@ -205,16 +206,140 @@ final class SystemStatusStoreTests: XCTestCase {
         XCTAssertEqual(volume.refreshCount, 1)
     }
 
+    func testWakeNotificationRefreshesAllMonitorsExactlyOnce() async {
+        let battery = FakeBatteryMonitor()
+        let wifi = FakeWiFiMonitor()
+        let volume = FakeVolumeMonitor()
+        let wakeCenter = NotificationCenter()
+        let store = makeStore(
+            battery: battery,
+            wifi: wifi,
+            volume: volume,
+            wakeNotificationCenter: wakeCenter
+        )
+        let refreshed = expectation(description: "all monitors refreshed after wake")
+        refreshed.assertForOverFulfill = true
+        volume.onRefresh = { refreshed.fulfill() }
+
+        store.start()
+        wakeCenter.post(
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+        await fulfillment(of: [refreshed], timeout: 1)
+
+        XCTAssertEqual(battery.refreshCount, 1)
+        XCTAssertEqual(wifi.refreshCount, 1)
+        XCTAssertEqual(volume.refreshCount, 1)
+        store.stop()
+    }
+
+    func testWakeNotificationAfterStopDoesNotRefresh() async {
+        let battery = FakeBatteryMonitor()
+        let wifi = FakeWiFiMonitor()
+        let volume = FakeVolumeMonitor()
+        let wakeCenter = SpyWakeNotificationCenter()
+        let store = makeStore(
+            battery: battery,
+            wifi: wifi,
+            volume: volume,
+            wakeNotificationCenter: wakeCenter
+        )
+        let noRefresh = expectation(description: "no refresh after stop")
+        noRefresh.isInverted = true
+        noRefresh.assertForOverFulfill = true
+        battery.onRefresh = { noRefresh.fulfill() }
+
+        store.start()
+        XCTAssertEqual(wakeCenter.addCount, 1)
+        store.stop()
+        XCTAssertEqual(wakeCenter.removeCount, 1)
+        wakeCenter.post(
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+        await fulfillment(of: [noRefresh], timeout: 0.2)
+
+        XCTAssertEqual(battery.refreshCount, 0)
+        XCTAssertEqual(wifi.refreshCount, 0)
+        XCTAssertEqual(volume.refreshCount, 0)
+    }
+
+    func testUnavailableMonitorDoesNotPreventOtherValuesFromMerging() async {
+        let battery = FakeBatteryMonitor()
+        let wifi = FakeWiFiMonitor()
+        let volume = FakeVolumeMonitor()
+        let store = makeStore(battery: battery, wifi: wifi, volume: volume)
+        let merged = expectation(description: "available monitors merged around unavailable Wi-Fi")
+        let fulfillOnce = SingleFulfillment()
+        var cancellables = Set<AnyCancellable>()
+        store.$snapshot
+            .dropFirst()
+            .sink { snapshot in
+                guard snapshot.battery.percentage == 42,
+                      snapshot.wifi.state == .unavailable,
+                      snapshot.volume.scalar == 0.6 else { return }
+                fulfillOnce.fulfill(merged)
+            }
+            .store(in: &cancellables)
+
+        store.start()
+        battery.send(makeBattery(percentage: 42))
+        wifi.send(.placeholder)
+        volume.send(VolumeStatus(scalar: 0.6, isMuted: false, deviceName: "Speaker"))
+        await fulfillment(of: [merged], timeout: 1)
+
+        XCTAssertEqual(store.snapshot.battery.percentage, 42)
+        XCTAssertEqual(store.snapshot.wifi.state, .unavailable)
+        XCTAssertEqual(store.snapshot.volume.scalar, 0.6)
+        cancellables.removeAll()
+        store.stop()
+    }
+
+    func testFinishedMonitorStreamDoesNotPreventOtherMonitorsFromPublishing() async {
+        let battery = FakeBatteryMonitor()
+        let wifi = FakeWiFiMonitor()
+        let volume = FakeVolumeMonitor()
+        let store = makeStore(battery: battery, wifi: wifi, volume: volume)
+        let merged = expectation(description: "remaining monitors continue publishing")
+        let fulfillOnce = SingleFulfillment()
+        var cancellables = Set<AnyCancellable>()
+        store.$snapshot
+            .dropFirst()
+            .sink { snapshot in
+                guard snapshot.battery.percentage == 42,
+                      snapshot.wifi.state == .unavailable,
+                      snapshot.volume.scalar == 0.6 else { return }
+                fulfillOnce.fulfill(merged)
+            }
+            .store(in: &cancellables)
+
+        store.start()
+        wifi.finishUpdates()
+        battery.send(makeBattery(percentage: 42))
+        volume.send(VolumeStatus(scalar: 0.6, isMuted: false, deviceName: "Speaker"))
+        await fulfillment(of: [merged], timeout: 1)
+
+        XCTAssertEqual(wifi.finishCount, 1)
+        XCTAssertEqual(store.snapshot.battery.percentage, 42)
+        XCTAssertEqual(store.snapshot.wifi.state, .unavailable)
+        XCTAssertEqual(store.snapshot.volume.scalar, 0.6)
+        cancellables.removeAll()
+        store.stop()
+    }
+
     private func makeStore(
         battery: FakeBatteryMonitor,
         wifi: FakeWiFiMonitor,
-        volume: FakeVolumeMonitor
+        volume: FakeVolumeMonitor,
+        wakeNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter
     ) -> SystemStatusStore {
         SystemStatusStore(
             batteryMonitor: battery,
             wifiMonitor: wifi,
             volumeMonitor: volume,
-            refreshInterval: .seconds(60)
+            refreshInterval: .seconds(60),
+            wakeNotificationCenter: wakeNotificationCenter
         )
     }
 
@@ -301,11 +426,43 @@ private final class ManualSleeper {
 }
 
 @MainActor
+private final class SingleFulfillment {
+    private var hasFulfilled = false
+
+    func fulfill(_ expectation: XCTestExpectation) {
+        guard !hasFulfilled else { return }
+        hasFulfilled = true
+        expectation.fulfill()
+    }
+}
+
+private final class SpyWakeNotificationCenter: NotificationCenter, @unchecked Sendable {
+    private(set) var addCount = 0
+    private(set) var removeCount = 0
+
+    override func addObserver(
+        forName name: NSNotification.Name?,
+        object: Any?,
+        queue: OperationQueue?,
+        using block: @escaping @Sendable (Notification) -> Void
+    ) -> NSObjectProtocol {
+        addCount += 1
+        return super.addObserver(forName: name, object: object, queue: queue, using: block)
+    }
+
+    override func removeObserver(_ observer: Any) {
+        removeCount += 1
+        super.removeObserver(observer)
+    }
+}
+
+@MainActor
 private final class FakeBatteryMonitor: BatteryMonitoring {
     let updates: AsyncStream<BatteryStatus>
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var refreshCount = 0
+    var onRefresh: (() -> Void)?
     private let continuation: AsyncStream<BatteryStatus>.Continuation
 
     init() {
@@ -317,7 +474,10 @@ private final class FakeBatteryMonitor: BatteryMonitoring {
         stopCount += 1
         continuation.finish()
     }
-    func refresh() { refreshCount += 1 }
+    func refresh() {
+        refreshCount += 1
+        onRefresh?()
+    }
     func send(_ value: BatteryStatus) { continuation.yield(value) }
 }
 
@@ -327,6 +487,7 @@ private final class FakeWiFiMonitor: WiFiMonitoring {
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var refreshCount = 0
+    private(set) var finishCount = 0
     private let continuation: AsyncStream<WiFiStatus>.Continuation
 
     init() { (updates, continuation) = AsyncStream.makeStream() }
@@ -337,6 +498,10 @@ private final class FakeWiFiMonitor: WiFiMonitoring {
     }
     func refresh() { refreshCount += 1 }
     func send(_ value: WiFiStatus) { continuation.yield(value) }
+    func finishUpdates() {
+        finishCount += 1
+        continuation.finish()
+    }
 }
 
 @MainActor
@@ -345,6 +510,7 @@ private final class FakeVolumeMonitor: VolumeMonitoring {
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var refreshCount = 0
+    var onRefresh: (() -> Void)?
     private let continuation: AsyncStream<VolumeStatus>.Continuation
 
     init() { (updates, continuation) = AsyncStream.makeStream() }
@@ -353,6 +519,9 @@ private final class FakeVolumeMonitor: VolumeMonitoring {
         stopCount += 1
         continuation.finish()
     }
-    func refresh() { refreshCount += 1 }
+    func refresh() {
+        refreshCount += 1
+        onRefresh?()
+    }
     func send(_ value: VolumeStatus) { continuation.yield(value) }
 }
