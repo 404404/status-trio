@@ -5557,13 +5557,16 @@ git commit -m "fix: recover monitors after failures and wake"
 
 ### Task 14: Package the app, update README, and verify the bundle
 
+> **Executed implementation note:** The build script validates arguments, rebuilds a host-architecture ad-hoc bundle, restarts the precise `com.lingsmbp.StatusTrio` process in `open` mode after confirming it exited, and leaves running instances untouched in `no-open` mode. The menu version reads `CFBundleShortVersionString` with a fallback; README documents local-use Gatekeeper behavior.
+
+
 **Files:**
 - Create: `Support/Info.plist`
 - Create: `scripts/build-app.sh`
 - Modify: `README.md`
 - Modify: `.gitignore`
 
-- [ ] **Step 1: Add the app bundle metadata**
+- [x] **Step 1: Add the app bundle metadata**
 
 Create `Support/Info.plist`:
 
@@ -5598,7 +5601,7 @@ Create `Support/Info.plist`:
 </plist>
 ```
 
-- [ ] **Step 2: Add the app bundle build script**
+- [x] **Step 2: Add the app bundle build script**
 
 Create `scripts/build-app.sh`:
 
@@ -5606,9 +5609,17 @@ Create `scripts/build-app.sh`:
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIGURATION="${1:-release}"
 OPEN_APP="${2:-open}"
+
+case "$OPEN_APP" in
+    open|no-open) ;;
+    *)
+        echo "Usage: $0 [configuration] [open|no-open]" >&2
+        exit 2
+        ;;
+esac
 
 cd "$ROOT"
 
@@ -5627,7 +5638,22 @@ chmod +x "$CONTENTS/MacOS/StatusTrio"
 codesign --force --sign - "$APP_DIR"
 
 echo "Built $APP_DIR"
+
 if [[ "$OPEN_APP" == "open" ]]; then
+    osascript -e 'tell application id "com.lingsmbp.StatusTrio" to quit' >/dev/null 2>&1 || true
+
+    for _ in {1..20}; do
+        if [[ -z "$(lsappinfo find bundleID=com.lingsmbp.StatusTrio 2>/dev/null || true)" ]]; then
+            break
+        fi
+        sleep 0.1
+    done
+
+    if [[ -n "$(lsappinfo find bundleID=com.lingsmbp.StatusTrio 2>/dev/null || true)" ]]; then
+        echo "Error: Status Trio (com.lingsmbp.StatusTrio) is still running after the graceful quit wait; refusing to open the rebuilt bundle." >&2
+        exit 1
+    fi
+
     open "$APP_DIR"
 fi
 ```
@@ -5641,7 +5667,7 @@ bash scripts/build-app.sh release no-open
 
 Expected: `dist/StatusTrio.app` is created and code-signing succeeds.
 
-- [ ] **Step 3: Update `.gitignore` for generated output**
+- [x] **Step 3: Update `.gitignore` for generated output**
 
 Ensure `.gitignore` contains:
 
@@ -5654,7 +5680,7 @@ dist/
 xcuserdata/
 ```
 
-- [ ] **Step 4: Update README with run and build instructions**
+- [x] **Step 4: Update README with run and build instructions**
 
 Append to `README.md`:
 
@@ -5662,7 +5688,7 @@ Append to `README.md`:
 ## Development
 
 ```bash
-swift test
+bash scripts/test.sh
 swift run StatusTrio
 ```
 
@@ -5675,7 +5701,7 @@ bash scripts/build-app.sh release
 The generated app is placed in `dist/StatusTrio.app`.
 ````
 
-- [ ] **Step 5: Verify a Finder launch and commit**
+- [x] **Step 5: Verify a Finder launch and commit**
 
 Run:
 
