@@ -4,7 +4,7 @@ import SwiftUI
 
 @MainActor
 final class StatusBarController: NSObject {
-    static let iconSnapshotDebounceInterval: TimeInterval = 1
+    static let iconSnapshotDebounceInterval: TimeInterval = 0.5
     static let iconFallbackRefreshInterval: TimeInterval = 5
 
     enum ClickKind: Equatable {
