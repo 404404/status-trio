@@ -18,8 +18,11 @@
       --shadow: 0 24px 80px rgb(0 0 0 / 8%);
       --icon-muted: color-mix(in srgb, var(--ink) 30%, transparent);
       --battery-warning: #f2b900;
+      --battery-critical: #ff3b30;
       --battery-charging: #34c759;
+      --battery-charging-bolt: #ffffff;
       --battery-color: var(--ink);
+      --battery-value-color: #ffffff;
       --radius-lg: 28px;
       --radius-md: 18px;
       --radius-sm: 12px;
@@ -37,6 +40,7 @@
         --accent: oklch(0.2 0.012 260);
         --accent-ink: oklch(1 0 0);
         --shadow: 0 24px 80px oklch(0.15 0.02 260 / 0.1);
+        --battery-critical: #ff3b30;
       }
     }
 
@@ -51,6 +55,7 @@
         --accent: #fafafa;
         --accent-ink: #18181b;
         --shadow: 0 24px 80px rgb(0 0 0 / 35%);
+        --battery-critical: #ff453a;
       }
     }
 
@@ -149,6 +154,31 @@
         stroke 220ms ease,
         stroke-dasharray 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
         opacity 120ms ease;
+    }
+
+    #battery-value {
+      fill: var(--battery-value-color);
+      transition: fill 220ms ease;
+    }
+
+    #battery-value,
+    #battery-charge-icon {
+      transition:
+        fill 220ms ease,
+        opacity 180ms ease;
+    }
+
+    #battery-charge-icon {
+      opacity: 0;
+      fill: var(--battery-charging-bolt);
+    }
+
+    #battery:is([data-charging="true"], [data-show-value="false"]) #battery-value {
+      opacity: 0;
+    }
+
+    #battery[data-charging="true"] #battery-charge-icon {
+      opacity: 1;
     }
 
     #wifi [data-index],
@@ -327,6 +357,12 @@
       background: color-mix(in srgb, var(--battery-charging) 58%, white);
     }
 
+    #battery-value-toggle[aria-pressed="true"] {
+      color: var(--ink);
+      border-color: color-mix(in srgb, var(--ink) 28%, var(--line));
+      background: var(--surface-soft);
+    }
+
     .state-code {
       margin-block-start: var(--space);
       padding: 1rem 1.15rem;
@@ -370,6 +406,9 @@
       <svg id="status-icon" class="status-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="电池、Wi-Fi 和音量状态">
         <title>电池、Wi-Fi 和音量状态</title>
         <defs>
+          <filter id="battery-value-shadow" x="-30%" y="-60%" width="160%" height="220%" color-interpolation-filters="sRGB">
+            <feDropShadow dx="0" dy="0.75" stdDeviation="0.75" flood-color="#000" flood-opacity="0.38"/>
+          </filter>
           <mask id="wifi-temporary-mask" maskUnits="userSpaceOnUse" x="24" y="40" width="72" height="48">
             <path d="M38.5 55.5 A31 31 0 0 1 80.5 55.5 L59.5 77.45 Z" fill="white" stroke="white" stroke-width="7" stroke-linejoin="round"/>
             <rect x="50.5" y="53.5" width="18" height="12" rx="2.5" fill="none" stroke="black" stroke-width="2.5" stroke-linejoin="round"/>
@@ -381,9 +420,11 @@
           </mask>
         </defs>
         <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-          <g id="battery" stroke-width="8">
+          <g id="battery" data-level="75" data-critical="false" data-charging="false" data-show-value="true" stroke-width="8">
             <path id="battery-track" d="M15.5 88.25 A51.5 51.5 0 1 1 103.5 88.25"/>
             <path id="battery-fill" d="M15.5 88.25 A51.5 51.5 0 1 1 103.5 88.25" pathLength="100"/>
+            <text id="battery-value" x="59.5" y="24" fill="#ffffff" stroke="none" text-anchor="middle" font-family="ui-rounded, 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="32" font-weight="700" font-variant-numeric="tabular-nums" letter-spacing="-0.04em" filter="url(#battery-value-shadow)">75</text>
+            <path id="battery-charge-icon" fill="#ffffff" d="M62.1 2.2 Q62.8 2.5 62.6 3.3 L61.2 7.8 H65.9 Q66.9 7.8 67.3 8.6 Q67.6 9.3 67 10 L57 21.3 Q56.4 22 55.6 21.6 Q55 21.3 55.3 20.5 L57.4 14.1 H52.9 Q52 14.1 51.6 13.3 Q51.3 12.6 51.9 12 L61.1 2.7 Q61.6 2.1 62.1 2.2 Z" stroke="none" filter="url(#battery-value-shadow)"/>
           </g>
 
           <g id="wifi" data-state="compare" stroke-width="7">
@@ -433,11 +474,15 @@
         <div class="battery-modes">
           <button class="mode-toggle" id="low-power-toggle" type="button" aria-pressed="false">
             <span>省电模式</span>
-            <span>黄色电量</span>
+            <span id="low-power-toggle-status">黄色圆弧 · 白色数字</span>
           </button>
           <button class="mode-toggle" id="charging-toggle" type="button" aria-pressed="false">
             <span>正在充电</span>
-            <span>绿色电量</span>
+            <span id="charging-toggle-status">绿色圆弧 · 白色闪电</span>
+          </button>
+          <button class="mode-toggle" id="battery-value-toggle" type="button" aria-pressed="true" aria-controls="status-icon">
+            <span>显示电量数字</span>
+            <span id="battery-value-toggle-status">显示</span>
           </button>
         </div>
       </article>
@@ -490,13 +535,19 @@
     const batteryInput = document.getElementById('battery-input');
     const batteryOutput = document.getElementById('battery-output');
     const lowPowerToggle = document.getElementById('low-power-toggle');
+    const lowPowerToggleStatus = document.getElementById('low-power-toggle-status');
     const chargingToggle = document.getElementById('charging-toggle');
+    const chargingToggleStatus = document.getElementById('charging-toggle-status');
+    const batteryValueToggle = document.getElementById('battery-value-toggle');
+    const batteryValueToggleStatus = document.getElementById('battery-value-toggle-status');
     const wifiOutput = document.getElementById('wifi-output');
     const wifiStateSelect = document.getElementById('wifi-state');
     const volumeOutput = document.getElementById('volume-output');
     const stateCode = document.getElementById('state-code');
 
+    const batteryGroup = document.getElementById('battery');
     const batteryFill = document.getElementById('battery-fill');
+    const batteryValue = document.getElementById('battery-value');
     const wifiGroup = document.getElementById('wifi');
     const wifiSignal = document.getElementById('wifi-signal');
     const wifiParts = [...icon.querySelectorAll('#wifi [data-index]')];
@@ -511,6 +562,7 @@
       volume: 4,
       lowPower: false,
       charging: false,
+      showBatteryValue: true,
     };
 
     const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value)));
@@ -524,24 +576,41 @@
 
     function updateBattery(value) {
       const battery = clamp(value, 0, 100);
+      batteryGroup.dataset.level = String(battery);
       batteryFill.style.strokeDasharray = `${battery} 100`;
       batteryFill.style.strokeDashoffset = '0';
       batteryFill.style.opacity = battery === 0 ? '0' : '1';
+      batteryValue.textContent = String(battery);
       batteryInput.value = String(battery);
       batteryOutput.value = `${battery}%`;
       return battery;
     }
 
     function updateBatteryColor() {
-      const batteryColor = state.charging
-        ? 'var(--battery-charging)'
+      const isCritical = state.battery < 20;
+      const batteryColor = isCritical
+        ? 'var(--battery-critical)'
         : state.lowPower
           ? 'var(--battery-warning)'
-          : 'var(--ink)';
-
+          : state.charging
+            ? 'var(--battery-charging)'
+            : 'var(--ink)';
+      batteryGroup.dataset.charging = String(state.charging);
+      batteryGroup.dataset.critical = String(isCritical);
+      batteryGroup.dataset.showValue = String(state.showBatteryValue);
       icon.style.setProperty('--battery-color', batteryColor);
       lowPowerToggle.setAttribute('aria-pressed', String(state.lowPower));
+      lowPowerToggleStatus.textContent = state.lowPower && isCritical
+        ? '低电量红色'
+        : '黄色圆弧 · 白色数字';
       chargingToggle.setAttribute('aria-pressed', String(state.charging));
+      chargingToggleStatus.textContent = state.charging && isCritical
+        ? '红色圆弧 · 白色闪电'
+        : state.charging && state.lowPower
+          ? '黄色圆弧 · 白色闪电'
+          : '绿色圆弧 · 白色闪电';
+      batteryValueToggle.setAttribute('aria-pressed', String(state.showBatteryValue));
+      batteryValueToggleStatus.textContent = state.showBatteryValue ? '显示' : '隐藏';
     }
 
     const WIFI_STATE_LABELS = {
@@ -603,11 +672,16 @@
       updateBatteryColor();
       state.wifi = updateWifi(state.wifi);
       state.volume = updateVolume(state.volume);
+      const batteryConditions = [];
+      if (state.battery < 20) batteryConditions.push('低电量');
+      if (state.lowPower) batteryConditions.push('省电模式');
+      if (state.charging) batteryConditions.push('正在充电');
+      const batteryMode = batteryConditions.length ? `，${batteryConditions.join('、')}` : '';
       stateCode.value =
-        `{ battery: ${state.battery}, wifi: ${state.wifi}, wifiState: '${state.wifiState}', volume: ${state.volume} }`;
+        `{ battery: ${state.battery}, batteryCritical: ${state.battery < 20}, showBatteryValue: ${state.showBatteryValue}, lowPower: ${state.lowPower}, charging: ${state.charging}, wifi: ${state.wifi}, wifiState: '${state.wifiState}', volume: ${state.volume} }`;
       icon.setAttribute(
         'aria-label',
-        `电池 ${state.battery}%，Wi-Fi ${WIFI_STATE_LABELS[state.wifiState]}，音量 ${state.volume} 格`,
+        `电池 ${state.battery}%${batteryMode}，Wi-Fi ${WIFI_STATE_LABELS[state.wifiState]}，音量 ${state.volume} 格`,
       );
     }
 
@@ -637,13 +711,16 @@
 
     lowPowerToggle.addEventListener('click', () => {
       state.lowPower = !state.lowPower;
-      if (state.lowPower) state.charging = false;
       render();
     });
 
     chargingToggle.addEventListener('click', () => {
       state.charging = !state.charging;
-      if (state.charging) state.lowPower = false;
+      render();
+    });
+
+    batteryValueToggle.addEventListener('click', () => {
+      state.showBatteryValue = !state.showBatteryValue;
       render();
     });
 
@@ -652,8 +729,7 @@
       state.battery = clamp(next.battery ?? state.battery, 0, 100);
       state.lowPower = next.lowPower ?? state.lowPower;
       state.charging = next.charging ?? state.charging;
-      if (state.charging) state.lowPower = false;
-      if (state.lowPower) state.charging = false;
+      state.showBatteryValue = next.showBatteryValue ?? state.showBatteryValue;
       state.wifi = clamp(next.wifi ?? state.wifi, 0, 3);
       if (next.wifiState && WIFI_STATE_LABELS[next.wifiState]) state.wifiState = next.wifiState;
       state.volume = clamp(next.volume ?? state.volume, 0, 4);

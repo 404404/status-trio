@@ -10,7 +10,9 @@ Status Trio is a native macOS menu bar app that combines battery, Wi-Fi, and vol
 
 - One configurable 20–32 pt menu bar icon (default 28 pt) for battery, Wi-Fi, and volume.
 - Settings window to adjust the icon render size, applied live and persisted.
-- Battery percentage, charging state, and Low Power Mode.
+- Battery percentage and charging bolt with independent visibility and percentage-size controls.
+- Optional battery arc colors with a configurable critical threshold (20% by default).
+- Charging state and Low Power Mode.
 - Wi-Fi signal strength, current network name, and common network states.
 - System output volume and mute state.
 - Left-click popover with current status details.
@@ -66,10 +68,18 @@ Build an ad-hoc-signed local app bundle:
 bash scripts/build-app.sh release
 ```
 
-This creates `dist/StatusTrio.app` and opens it by default. In open mode, the script asks any existing `com.lingsmbp.StatusTrio` instance to quit and waits briefly before launching the freshly built bundle. Pass `no-open` as the second argument to only build without quitting or launching an app:
+This creates `dist/StatusTrio.app` and opens it by default. In open mode, the script asks any existing instance with the same bundle identifier to quit and waits briefly before launching the freshly built bundle. Pass `no-open` as the second argument to only build without quitting or launching an app:
 
 ```bash
 bash scripts/build-app.sh release no-open
 ```
+
+To run a worktree build alongside the main app, override its bundle identifier and display name:
+
+```bash
+BUNDLE_ID=com.lingsmbp.StatusTrio.dev.batteryIndicatorsSettings APP_NAME="Status Trio (Battery Indicators)" bash scripts/build-app.sh release open
+```
+
+The single-instance lock is scoped by bundle identifier, so differently identified builds can run at the same time. Main builds keep using `com.lingsmbp.StatusTrio` by default; no bundle identifier change is required before merging.
 
 The ad-hoc-signed bundle is intended for local personal use. Gatekeeper may reject it if the bundle is transferred with quarantine metadata.

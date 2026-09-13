@@ -54,6 +54,41 @@ final class StatusIconGeometryTests: XCTestCase {
         XCTAssertTrue(StatusIconGeometry.batteryFill(progress: 0).isEmpty)
     }
 
+    func testBatteryChargingBoltBounds() {
+        let bolt = StatusIconGeometry.batteryChargingBolt()
+
+        XCTAssertFalse(bolt.isEmpty)
+        XCTAssertEqual(StatusIconGeometry.batteryValueBaseline(fontSize: 20), CGPoint(x: 59.5, y: 17))
+        XCTAssertEqual(StatusIconGeometry.batteryValueBaseFontSize, 20, accuracy: 0.01)
+        XCTAssertEqual(
+            StatusIconGeometry.batteryChargingBoltCalibration,
+            220.0 / 180.0,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(StatusIconGeometry.batteryValueBaseline(fontSize: 32), CGPoint(x: 59.5, y: 24))
+        assertPathBounds(
+            bolt,
+            equals: CGRect(x: 51.3, y: 2.1, width: 15.9, height: 19.9),
+            accuracy: 0.35
+        )
+    }
+
+    func testBatteryChargingBoltScalesProportionally() {
+        let base = StatusIconGeometry.batteryChargingBolt()
+        let scaled = StatusIconGeometry.batteryChargingBolt(scale: 1.25)
+        let baseBounds = base.boundingBoxOfPath
+        let scaledBounds = scaled.boundingBoxOfPath
+
+        let pivotY: CGFloat = 2.1
+        XCTAssertEqual(
+            scaledBounds.minY,
+            pivotY + (baseBounds.minY - pivotY) * 1.25,
+            accuracy: 0.01
+        )
+        XCTAssertEqual(scaledBounds.width, baseBounds.width * 1.25, accuracy: 0.05)
+        XCTAssertEqual(scaledBounds.height, baseBounds.height * 1.25, accuracy: 0.05)
+    }
+
     func testWiFiLevelBoundaries() {
         for level in [-1, 0, 1] {
             XCTAssertTrue(

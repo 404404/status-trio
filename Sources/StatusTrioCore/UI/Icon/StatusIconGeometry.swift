@@ -10,6 +10,21 @@ enum StatusIconGeometry {
     private static let batteryStart: CGFloat = 148.69008689281117 * .pi / 180
     private static let batterySweep: CGFloat = 242.6198262143777 * .pi / 180
 
+    static let batteryValueBaseFontSize: CGFloat = 20
+    static let batteryChargingBoltCalibration: CGFloat = 220.0 / 180.0
+
+    static func batteryValueBaseline(fontSize: CGFloat) -> CGPoint {
+        let referenceFontSize: CGFloat = 20
+        let referenceBaseline: CGFloat = 17
+        let currentFontSize: CGFloat = 32
+        let currentBaseline: CGFloat = 24
+        let slope = (currentBaseline - referenceBaseline) / (currentFontSize - referenceFontSize)
+        return CGPoint(
+            x: 59.5,
+            y: referenceBaseline + (fontSize - referenceFontSize) * slope
+        )
+    }
+
     private static let wifiOuterCenter = CGPoint(x: 59.5, y: 78.3)
     private static let wifiOuterRadius: CGFloat = 31
     private static let wifiOuterStart: CGFloat = 227.35 * .pi / 180
@@ -23,6 +38,62 @@ enum StatusIconGeometry {
         let clamped = min(1, max(0, progress))
         guard clamped > 0 else { return CGMutablePath() }
         return batteryArc(progress: clamped)
+    }
+
+    static func batteryChargingBolt(scale: CGFloat = 1) -> CGPath {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: 62.1, y: 2.2))
+        path.addQuadCurve(
+            to: CGPoint(x: 62.6, y: 3.3),
+            control: CGPoint(x: 62.8, y: 2.5)
+        )
+        path.addLine(to: CGPoint(x: 61.2, y: 7.8))
+        path.addLine(to: CGPoint(x: 65.9, y: 7.8))
+        path.addQuadCurve(
+            to: CGPoint(x: 67.3, y: 8.6),
+            control: CGPoint(x: 66.9, y: 7.8)
+        )
+        path.addQuadCurve(
+            to: CGPoint(x: 67, y: 10),
+            control: CGPoint(x: 67.6, y: 9.3)
+        )
+        path.addLine(to: CGPoint(x: 57, y: 21.3))
+        path.addQuadCurve(
+            to: CGPoint(x: 55.6, y: 21.6),
+            control: CGPoint(x: 56.4, y: 22)
+        )
+        path.addQuadCurve(
+            to: CGPoint(x: 55.3, y: 20.5),
+            control: CGPoint(x: 55, y: 21.3)
+        )
+        path.addLine(to: CGPoint(x: 57.4, y: 14.1))
+        path.addLine(to: CGPoint(x: 52.9, y: 14.1))
+        path.addQuadCurve(
+            to: CGPoint(x: 51.6, y: 13.3),
+            control: CGPoint(x: 52, y: 14.1)
+        )
+        path.addQuadCurve(
+            to: CGPoint(x: 51.9, y: 12),
+            control: CGPoint(x: 51.3, y: 12.6)
+        )
+        path.addLine(to: CGPoint(x: 61.1, y: 2.7))
+        path.addQuadCurve(
+            to: CGPoint(x: 62.1, y: 2.2),
+            control: CGPoint(x: 61.6, y: 2.1)
+        )
+        path.closeSubpath()
+
+        guard scale.isFinite, scale > 0, scale != 1 else { return path }
+        let pivot = CGPoint(x: 59.5, y: 2.1)
+        var transform = CGAffineTransform(
+            a: scale,
+            b: 0,
+            c: 0,
+            d: scale,
+            tx: pivot.x * (1 - scale),
+            ty: pivot.y * (1 - scale)
+        )
+        return path.copy(using: &transform) ?? path
     }
 
     static func wifiArcs(level: Int) -> [CGPath] {

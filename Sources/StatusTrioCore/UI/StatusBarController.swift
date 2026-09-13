@@ -15,6 +15,7 @@ final class StatusBarController: NSObject {
     private let settings: SettingsStore
     private var cancellable: AnyCancellable?
     private var iconSizeCancellable: AnyCancellable?
+    private var batteryOptionsCancellable: AnyCancellable?
     private let openSettings: () -> Void
     private let quitAction: () -> Void
     private var appearanceObservations: [NSKeyValueObservation] = []
@@ -46,9 +47,43 @@ final class StatusBarController: NSObject {
 
         iconSizeCancellable = settings.$iconSize
             .removeDuplicates()
-            .sink { [weak self] _ in
-                self?.renderLatestSnapshot()
+            .sink { [weak self] iconSize in
+                guard let self else { return }
+                self.render(
+                    snapshot: self.store.snapshot,
+                    iconSize: iconSize,
+                    options: self.settings.batteryIconOptions
+                )
             }
+
+        batteryOptionsCancellable = Publishers.CombineLatest4(
+            settings.$showsBatteryPercentage,
+            settings.$showsChargingIndicator,
+            settings.$usesBatteryStatusColors,
+            settings.$batteryCriticalThreshold
+        )
+        .combineLatest(settings.$batterySymbolScale)
+        .sink { [weak self] batteryValues, symbolScale in
+            guard let self else { return }
+            let (
+                showsPercentage,
+                showsChargingIndicator,
+                usesStatusColors,
+                criticalThreshold
+            ) = batteryValues
+            let options = BatteryIconOptions(
+                showsPercentage: showsPercentage,
+                showsChargingIndicator: showsChargingIndicator,
+                usesStatusColors: usesStatusColors,
+                criticalThreshold: Int(criticalThreshold.rounded()),
+                textScale: symbolScale * BatteryIconOptions.defaultTextScale
+            )
+            self.render(
+                snapshot: self.store.snapshot,
+                iconSize: self.settings.iconSize,
+                options: options
+            )
+        }
 
         appearanceObservations.append(NSApp.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
             Task { @MainActor in
@@ -137,12 +172,26 @@ final class StatusBarController: NSObject {
     }
 
     private func render(snapshot: StatusSnapshot) {
+        render(
+            snapshot: snapshot,
+            iconSize: settings.iconSize,
+            options: settings.batteryIconOptions
+        )
+    }
+
+    private func render(
+        snapshot: StatusSnapshot,
+        iconSize: Double,
+        options: BatteryIconOptions
+    ) {
         guard let button = statusItem.button else { return }
         button.image = StatusIconRenderer.image(
             snapshot: snapshot,
-            size: settings.iconSize,
+            size: iconSize,
+            options: options,
             appearance: Self.resolvedAppearance(button: button)
         )
+        button.setNeedsDisplay(button.bounds)
         button.setAccessibilityLabel(StatusPresentation.statusItemAccessibilityLabel)
         button.setAccessibilityValue(StatusPresentation.statusItemAccessibilityValue(snapshot))
     }

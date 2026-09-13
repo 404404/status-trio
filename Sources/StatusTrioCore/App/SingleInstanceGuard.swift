@@ -5,8 +5,22 @@ final class SingleInstanceGuard {
     static var defaultLockPath: String {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/StatusTrio", isDirectory: true)
-            .appendingPathComponent("StatusTrio.lock")
+            .appendingPathComponent(lockFileName(for: Bundle.main.bundleIdentifier))
             .path
+    }
+
+    static func lockFileName(for bundleIdentifier: String?) -> String {
+        let fallbackIdentifier = "com.lingsmbp.StatusTrio"
+        let identifier = bundleIdentifier?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedIdentifier = identifier.flatMap { $0.isEmpty ? nil : $0 }
+            ?? fallbackIdentifier
+        let sanitizedIdentifier = resolvedIdentifier.map { character in
+            character.isLetter || character.isNumber || character == "." || character == "-"
+                ? character
+                : "_"
+        }
+        return "\(String(sanitizedIdentifier)).lock"
     }
 
     private let descriptor: Int32

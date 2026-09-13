@@ -1,5 +1,6 @@
 import AppKit
 import CoreGraphics
+import CoreText
 
 enum StatusIconRenderer {
     private static let wifiCanvasBounds = CGRect(
@@ -12,6 +13,7 @@ enum StatusIconRenderer {
     static func image(
         snapshot: StatusSnapshot,
         size: CGFloat,
+        options: BatteryIconOptions = .standard,
         appearance: NSAppearance
     ) -> NSImage {
         let image = NSImage(size: NSSize(width: size, height: size))
@@ -19,11 +21,20 @@ enum StatusIconRenderer {
         appearance.performAsCurrentDrawingAppearance {
             let foreground = NSColor.labelColor.usingColorSpace(.deviceRGB)?.cgColor
                 ?? CGColor(gray: 1, alpha: 1)
+            let criticalColor = NSColor.systemRed.usingColorSpace(.deviceRGB)?.cgColor
+                ?? Self.defaultCriticalColor
             image.lockFocus()
             defer { image.unlockFocus() }
 
             guard let context = NSGraphicsContext.current?.cgContext else { return }
-            draw(snapshot: snapshot, in: context, size: size, foreground: foreground)
+            draw(
+                snapshot: snapshot,
+                options: options,
+                in: context,
+                size: size,
+                foreground: foreground,
+                criticalColor: criticalColor
+            )
         }
 
         return image
@@ -59,7 +70,8 @@ enum StatusIconRenderer {
         snapshot: StatusSnapshot,
         size: CGFloat,
         scale: CGFloat,
-        foreground: CGColor
+        foreground: CGColor,
+        options: BatteryIconOptions = .standard
     ) -> CGImage? {
         guard size.isFinite, scale.isFinite, size > 0, scale > 0 else { return nil }
 
@@ -85,15 +97,24 @@ enum StatusIconRenderer {
         }
 
         context.scaleBy(x: scale, y: scale)
-        draw(snapshot: snapshot, in: context, size: size, foreground: foreground)
+        draw(
+            snapshot: snapshot,
+            options: options,
+            in: context,
+            size: size,
+            foreground: foreground,
+            criticalColor: defaultCriticalColor
+        )
         return context.makeImage()
     }
 
     private static func draw(
         snapshot: StatusSnapshot,
+        options: BatteryIconOptions,
         in context: CGContext,
         size: CGFloat,
-        foreground: CGColor
+        foreground: CGColor,
+        criticalColor: CGColor
     ) {
         context.saveGState()
         defer { context.restoreGState() }
@@ -105,34 +126,151 @@ enum StatusIconRenderer {
         context.setLineCap(.round)
         context.setLineJoin(.round)
 
-        drawBattery(snapshot.battery, in: context, foreground: foreground)
+        drawBattery(
+            snapshot.battery,
+            options: options,
+            in: context,
+            foreground: foreground,
+            criticalColor: criticalColor
+        )
         drawWiFi(snapshot.wifi, in: context, foreground: foreground)
         drawVolume(snapshot.volume, in: context, foreground: foreground)
     }
 
     private static func drawBattery(
         _ battery: BatteryStatus,
+        options: BatteryIconOptions,
         in context: CGContext,
-        foreground: CGColor
+        foreground: CGColor,
+        criticalColor: CGColor
     ) {
         context.setLineWidth(8)
         context.setStrokeColor(foreground.copy(alpha: 0.22) ?? foreground)
         context.addPath(StatusIconGeometry.batteryTrack())
         context.strokePath()
 
-        let fillColor: CGColor
-        switch StatusMappings.batteryColorRole(battery) {
-        case .foreground:
-            fillColor = foreground
-        case .charging:
-            fillColor = CGColor(red: 52.0 / 255.0, green: 199.0 / 255.0, blue: 89.0 / 255.0, alpha: 1)
-        case .lowPower:
-            fillColor = CGColor(red: 242.0 / 255.0, green: 185.0 / 255.0, blue: 0, alpha: 1)
-        }
+        let role = options.usesStatusColors
+            ? StatusMappings.batteryColorRole(
+                battery,
+                criticalThreshold: options.criticalThreshold
+            )
+            : .foreground
+        let arcColor = color(
+            for: role,
+            foreground: foreground,
+            criticalColor: criticalColor
+        )
 
-        context.setStrokeColor(fillColor)
+        context.setStrokeColor(arcColor)
         context.addPath(StatusIconGeometry.batteryFill(progress: StatusMappings.batteryProgress(battery)))
         context.strokePath()
+
+        context.saveGState()
+        context.setShadow(
+            offset: CGSize(width: 0, height: 0.75),
+            blur: 0.75,
+            color: CGColor(gray: 0, alpha: 0.38)
+        )
+        defer { context.restoreGState() }
+
+        if battery.isPresent,
+           battery.isCharging || battery.isConnectedToPower,
+           options.showsChargingIndicator {
+            context.setFillColor(CGColor(gray: 1, alpha: 1))
+            context.addPath(StatusIconGeometry.batteryChargingBolt(
+                scale: batteryChargingBoltScale(textScale: options.textScale)
+            ))
+            context.fillPath()
+        } else if options.showsPercentage {
+            drawBatteryPercentage(
+                battery.percentage,
+                color: CGColor(gray: 1, alpha: 1),
+                fontSize: batteryValueFontSize(scale: options.textScale),
+                in: context
+            )
+        }
+    }
+
+    private static func color(
+        for role: BatteryColorRole,
+        foreground: CGColor,
+        criticalColor: CGColor
+    ) -> CGColor {
+        switch role {
+        case .foreground:
+            foreground
+        case .critical:
+            criticalColor
+        case .charging:
+            CGColor(red: 52.0 / 255.0, green: 199.0 / 255.0, blue: 89.0 / 255.0, alpha: 1)
+        case .lowPower:
+            CGColor(red: 242.0 / 255.0, green: 185.0 / 255.0, blue: 0, alpha: 1)
+        }
+    }
+
+    private static func drawBatteryPercentage(
+        _ percentage: Int,
+        color: CGColor,
+        fontSize: CGFloat,
+        in context: CGContext
+    ) {
+        let font = batteryValueFont(size: fontSize)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .kern: -fontSize * 0.04,
+            .foregroundColor: NSColor(cgColor: color) ?? .white
+        ]
+        let line = CTLineCreateWithAttributedString(
+            NSAttributedString(string: String(percentage), attributes: attributes)
+        )
+        var ascent: CGFloat = 0
+        var descent: CGFloat = 0
+        var leading: CGFloat = 0
+        let width = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, &leading))
+        let baseline = StatusIconGeometry.batteryValueBaseline(fontSize: fontSize)
+
+        context.setFillColor(color)
+        context.textMatrix = CGAffineTransform(scaleX: 1, y: -1)
+        context.textPosition = CGPoint(x: baseline.x - width / 2, y: baseline.y)
+        CTLineDraw(line, context)
+    }
+
+    private static func batteryValueFontSize(scale: Double) -> CGFloat {
+        StatusIconGeometry.batteryValueBaseFontSize * CGFloat(scale)
+    }
+
+    private static func batteryChargingBoltScale(textScale: Double) -> CGFloat {
+        let fontSize = batteryValueFontSize(scale: textScale)
+        let line = CTLineCreateWithAttributedString(
+            NSAttributedString(
+                string: "100",
+                attributes: [.font: batteryValueFont(size: fontSize)]
+            )
+        )
+        let glyphHeight = CTLineGetBoundsWithOptions(line, [.useGlyphPathBounds]).height
+        let boltHeight = StatusIconGeometry.batteryChargingBolt().boundingBoxOfPath.height
+        guard glyphHeight.isFinite,
+              glyphHeight > 0,
+              boltHeight.isFinite,
+              boltHeight > 0
+        else {
+            return CGFloat(textScale / BatteryIconOptions.defaultTextScale)
+                * StatusIconGeometry.batteryChargingBoltCalibration
+        }
+        return CGFloat(glyphHeight) / boltHeight
+            * StatusIconGeometry.batteryChargingBoltCalibration
+    }
+
+    private static var defaultCriticalColor: CGColor {
+        CGColor(red: 255.0 / 255.0, green: 59.0 / 255.0, blue: 48.0 / 255.0, alpha: 1)
+    }
+
+    private static func batteryValueFont(size: CGFloat) -> NSFont {
+        let fallback = NSFont.systemFont(ofSize: size, weight: .bold)
+        guard let descriptor = fallback.fontDescriptor.withDesign(.rounded) else {
+            return fallback
+        }
+        return NSFont(descriptor: descriptor, size: size) ?? fallback
     }
 
     private static func drawWiFi(

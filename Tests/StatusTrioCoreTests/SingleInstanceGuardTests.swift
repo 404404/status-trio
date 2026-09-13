@@ -3,6 +3,25 @@ import XCTest
 @testable import StatusTrioCore
 
 final class SingleInstanceGuardTests: XCTestCase {
+    func testLockFileNameIsScopedByBundleIdentifier() {
+        XCTAssertEqual(
+            SingleInstanceGuard.lockFileName(for: "com.example.StatusTrio"),
+            "com.example.StatusTrio.lock"
+        )
+        XCTAssertEqual(
+            SingleInstanceGuard.lockFileName(for: "com.example/Status Trio"),
+            "com.example_Status_Trio.lock"
+        )
+        XCTAssertEqual(
+            SingleInstanceGuard.lockFileName(for: nil),
+            "com.lingsmbp.StatusTrio.lock"
+        )
+        XCTAssertEqual(
+            SingleInstanceGuard.lockFileName(for: "  "),
+            "com.lingsmbp.StatusTrio.lock"
+        )
+    }
+
     func testSecondGuardCannotAcquireUntilFirstIsReleased() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("StatusTrioTests-\(UUID().uuidString)", isDirectory: true)

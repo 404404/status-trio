@@ -217,6 +217,340 @@ final class StatusIconRendererTests: XCTestCase {
         ))
     }
 
+
+    func testBatteryPercentageCanBeHidden() throws {
+        let snapshot = StatusSnapshot(
+            battery: makeBattery(rawPercentage: 50),
+            wifi: .placeholder,
+            volume: .placeholder
+        )
+        let visible = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1),
+                options: BatteryIconOptions(
+                    showsPercentage: true,
+                    showsChargingIndicator: true,
+                    usesStatusColors: true,
+                    criticalThreshold: 20
+                )
+            ))
+        )
+        let hidden = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1),
+                options: BatteryIconOptions(
+                    showsPercentage: false,
+                    showsChargingIndicator: true,
+                    usesStatusColors: true,
+                    criticalThreshold: 20
+                )
+            ))
+        )
+        let valueRegion = CGRect(x: 45, y: 0, width: 30, height: 34)
+
+        XCTAssertGreaterThan(
+            visible.alphaSum(inSVGRect: valueRegion, size: 20, scale: 8),
+            hidden.alphaSum(inSVGRect: valueRegion, size: 20, scale: 8)
+        )
+    }
+
+    func testBatteryPercentageIsAlwaysWhite() throws {
+        let batteries = [
+            makeBattery(rawPercentage: 50),
+            makeBattery(rawPercentage: 50, isLowPowerMode: true),
+            makeBattery(rawPercentage: 19)
+        ]
+
+        for battery in batteries {
+            let pixels = try PixelBuffer(
+                image: try XCTUnwrap(StatusIconRenderer.render(
+                    snapshot: StatusSnapshot(
+                        battery: battery,
+                        wifi: .placeholder,
+                        volume: .placeholder
+                    ),
+                    size: 20,
+                    scale: 8,
+                    foreground: CGColor(gray: 0, alpha: 1)
+                ))
+            )
+
+            XCTAssertTrue(pixels.containsColor(
+                red: 1,
+                green: 1,
+                blue: 1,
+                tolerance: 0.08,
+                minimumAlpha: 0.9
+            ))
+        }
+    }
+
+    func testChargingIndicatorCanBeHidden() throws {
+        let snapshot = StatusSnapshot(
+            battery: makeBattery(rawPercentage: 50, isCharging: true),
+            wifi: .placeholder,
+            volume: .placeholder
+        )
+        let visible = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1),
+                options: BatteryIconOptions(
+                    showsPercentage: false,
+                    showsChargingIndicator: true,
+                    usesStatusColors: true,
+                    criticalThreshold: 20
+                )
+            ))
+        )
+        let hidden = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1),
+                options: BatteryIconOptions(
+                    showsPercentage: false,
+                    showsChargingIndicator: false,
+                    usesStatusColors: true,
+                    criticalThreshold: 20
+                )
+            ))
+        )
+        let boltRegion = CGRect(x: 50, y: 0, width: 20, height: 23)
+
+        XCTAssertGreaterThan(
+            visible.alphaSum(inSVGRect: boltRegion, size: 20, scale: 8),
+            hidden.alphaSum(inSVGRect: boltRegion, size: 20, scale: 8)
+        )
+    }
+
+    func testBatteryPercentageScaleChangesRenderedSize() throws {
+        let snapshot = StatusSnapshot(
+            battery: makeBattery(rawPercentage: 50),
+            wifi: .placeholder,
+            volume: .placeholder
+        )
+        let small = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1),
+                options: BatteryIconOptions(
+                    showsPercentage: true,
+                    showsChargingIndicator: true,
+                    usesStatusColors: true,
+                    criticalThreshold: 20,
+                    textScale: 1
+                )
+            ))
+        )
+        let large = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1),
+                options: BatteryIconOptions(
+                    showsPercentage: true,
+                    showsChargingIndicator: true,
+                    usesStatusColors: true,
+                    criticalThreshold: 20,
+                    textScale: 2
+                )
+            ))
+        )
+        let valueRegion = CGRect(x: 35, y: 0, width: 50, height: 45)
+
+        XCTAssertGreaterThan(
+            large.alphaSum(inSVGRect: valueRegion, size: 20, scale: 8),
+            small.alphaSum(inSVGRect: valueRegion, size: 20, scale: 8)
+        )
+    }
+
+    func testConnectedToPowerWithoutActiveChargingShowsBolt() throws {
+        let snapshot = StatusSnapshot(
+            battery: makeBattery(
+                rawPercentage: 80,
+                isCharging: false,
+                isConnectedToPower: true
+            ),
+            wifi: .placeholder,
+            volume: .placeholder
+        )
+        let withBolt = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1),
+                options: BatteryIconOptions(
+                    showsPercentage: false,
+                    showsChargingIndicator: true,
+                    usesStatusColors: true,
+                    criticalThreshold: 20
+                )
+            ))
+        )
+        let withoutBolt = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1),
+                options: BatteryIconOptions(
+                    showsPercentage: false,
+                    showsChargingIndicator: false,
+                    usesStatusColors: true,
+                    criticalThreshold: 20
+                )
+            ))
+        )
+        let markerRegion = CGRect(x: 45, y: 0, width: 30, height: 34)
+        XCTAssertGreaterThan(
+            withBolt.alphaSum(inSVGRect: markerRegion, size: 20, scale: 8),
+            withoutBolt.alphaSum(inSVGRect: markerRegion, size: 20, scale: 8)
+        )
+    }
+
+    func testBoltScaleTracksBatterySymbolScale() throws {
+        let snapshot = StatusSnapshot(
+            battery: makeBattery(
+                rawPercentage: 80,
+                isCharging: true,
+                isConnectedToPower: true
+            ),
+            wifi: .placeholder,
+            volume: .placeholder
+        )
+        let small = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1),
+                options: BatteryIconOptions(
+                    showsPercentage: false,
+                    showsChargingIndicator: true,
+                    usesStatusColors: true,
+                    criticalThreshold: 20,
+                    textScale: 1
+                )
+            ))
+        )
+        let large = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 1, alpha: 1),
+                options: BatteryIconOptions(
+                    showsPercentage: false,
+                    showsChargingIndicator: true,
+                    usesStatusColors: true,
+                    criticalThreshold: 20,
+                    textScale: 2
+                )
+            ))
+        )
+        let boltRegion = CGRect(x: 40, y: 0, width: 40, height: 40)
+
+        XCTAssertGreaterThan(
+            large.alphaSum(inSVGRect: boltRegion, size: 20, scale: 8),
+            small.alphaSum(inSVGRect: boltRegion, size: 20, scale: 8)
+        )
+    }
+
+    func testChargingBoltIsWhiteWhenStatusColorsAreDisabled() throws {
+        let snapshot = StatusSnapshot(
+            battery: makeBattery(rawPercentage: 50, isCharging: true),
+            wifi: .placeholder,
+            volume: .placeholder
+        )
+        let pixels = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 8,
+                foreground: CGColor(gray: 0, alpha: 1),
+                options: BatteryIconOptions(
+                    showsPercentage: false,
+                    showsChargingIndicator: true,
+                    usesStatusColors: false,
+                    criticalThreshold: 20
+                )
+            ))
+        )
+
+        XCTAssertTrue(pixels.containsColor(
+            red: 1,
+            green: 1,
+            blue: 1,
+            tolerance: 0.08,
+            minimumAlpha: 0.9
+        ))
+    }
+
+    func testBatteryStatusColorsCanBeDisabled() throws {
+        let snapshot = StatusSnapshot(
+            battery: makeBattery(rawPercentage: 19),
+            wifi: .placeholder,
+            volume: .placeholder
+        )
+        let colored = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 4,
+                foreground: CGColor(gray: 1, alpha: 1),
+                options: BatteryIconOptions(
+                    showsPercentage: true,
+                    showsChargingIndicator: true,
+                    usesStatusColors: true,
+                    criticalThreshold: 20
+                )
+            ))
+        )
+        let monochrome = try PixelBuffer(
+            image: try XCTUnwrap(StatusIconRenderer.render(
+                snapshot: snapshot,
+                size: 20,
+                scale: 4,
+                foreground: CGColor(gray: 1, alpha: 1),
+                options: BatteryIconOptions(
+                    showsPercentage: true,
+                    showsChargingIndicator: true,
+                    usesStatusColors: false,
+                    criticalThreshold: 20
+                )
+            ))
+        )
+
+        XCTAssertTrue(colored.containsColor(
+            red: 1,
+            green: 0.23,
+            blue: 0.19,
+            tolerance: 0.14,
+            minimumAlpha: 0.9
+        ))
+        XCTAssertFalse(monochrome.containsColor(
+            red: 1,
+            green: 0.23,
+            blue: 0.19,
+            tolerance: 0.08,
+            minimumAlpha: 0.9
+        ))
+    }
+
     func testAppKitWrapperProducesBitmapRepresentation() throws {
         let appearance = try XCTUnwrap(NSAppearance(named: .aqua))
         let image = StatusIconRenderer.image(
@@ -325,9 +659,9 @@ final class StatusIconRendererTests: XCTestCase {
         let aquaLuminance = try XCTUnwrap(aquaPixels.averageOpaqueLuminance())
         let darkAquaLuminance = try XCTUnwrap(darkAquaPixels.averageOpaqueLuminance())
 
-        XCTAssertLessThan(aquaLuminance, 0.2)
-        XCTAssertGreaterThan(darkAquaLuminance, 0.8)
-        XCTAssertGreaterThan(darkAquaLuminance - aquaLuminance, 0.6)
+        XCTAssertLessThan(aquaLuminance, 0.4)
+        XCTAssertGreaterThan(darkAquaLuminance, 0.55)
+        XCTAssertGreaterThan(darkAquaLuminance - aquaLuminance, 0.25)
     }
 
     func testHotspotOverlayPointIsUnique() throws {
@@ -583,6 +917,21 @@ final class StatusIconRendererTests: XCTestCase {
             let alpha = Double(pixels.alpha(atSVGPoint: point, size: 20, scale: 8))
             XCTAssertEqual(alpha, expectedAlpha, accuracy: 2)
         }
+    }
+
+    private func makeBattery(
+        rawPercentage: Int,
+        isCharging: Bool = false,
+        isLowPowerMode: Bool = false,
+        isConnectedToPower: Bool? = nil
+    ) -> BatteryStatus {
+        BatteryStatus(
+            rawPercentage: rawPercentage,
+            isPresent: true,
+            isCharging: isCharging,
+            isLowPowerMode: isLowPowerMode,
+            isConnectedToPower: isConnectedToPower ?? isCharging
+        )
     }
 
     private func renderPixels(_ snapshot: StatusSnapshot) throws -> PixelBuffer {

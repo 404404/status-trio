@@ -1,10 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="System status">
   <title>System status: battery, Wi-Fi and level indicator</title>
+  <defs>
+    <filter id="battery-value-shadow" x="-30%" y="-60%" width="160%" height="220%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0.75" stdDeviation="0.75" flood-color="#000" flood-opacity="0.38" />
+    </filter>
+    <style>
+      #battery-value,
+      #battery-charge-icon { transition: opacity 180ms ease; }
+      #battery-charge-icon { opacity: 0; }
+      #battery:is([data-charging="true"], [data-show-value="false"]) #battery-value { opacity: 0; }
+      #battery[data-charging="true"] #battery-charge-icon { opacity: 1; }
+    </style>
+  </defs>
   <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-    <!-- Battery level: change data-level (0–100) and reveal the matching arc in code. -->
-    <g id="battery" data-level="100" stroke-width="8">
+    <!-- Battery level: change data-level and #battery-value together (0–100). -->
+    <g id="battery" data-level="100" data-critical="false" data-charging="false" data-show-value="true" stroke-width="8">
       <path id="battery-track" d="M15.5 88.25 A51.5 51.5 0 1 1 103.5 88.25" opacity="0.22" />
       <path id="battery-fill" d="M15.5 88.25 A51.5 51.5 0 1 1 103.5 88.25" pathLength="100" stroke-dasharray="100" stroke-dashoffset="0" />
+      <text id="battery-value" x="59.5" y="24" fill="#ffffff" stroke="none" text-anchor="middle" font-family="ui-rounded, 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="32" font-weight="700" font-variant-numeric="tabular-nums" letter-spacing="-0.04em" filter="url(#battery-value-shadow)">100</text>
+      <path id="battery-charge-icon" fill="#ffffff" d="M62.1 2.2 Q62.8 2.5 62.6 3.3 L61.2 7.8 H65.9 Q66.9 7.8 67.3 8.6 Q67.6 9.3 67 10 L57 21.3 Q56.4 22 55.6 21.6 Q55 21.3 55.3 20.5 L57.4 14.1 H52.9 Q52 14.1 51.6 13.3 Q51.3 12.6 51.9 12 L61.1 2.7 Q61.6 2.1 62.1 2.2 Z" stroke="none" filter="url(#battery-value-shadow)" />
     </g>
 
     <!-- Wi-Fi level: three independently controllable arcs plus the center marker. -->

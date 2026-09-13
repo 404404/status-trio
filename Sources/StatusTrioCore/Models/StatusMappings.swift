@@ -2,8 +2,9 @@ import Foundation
 
 enum BatteryColorRole: Equatable, Sendable {
     case foreground
-    case charging
+    case critical
     case lowPower
+    case charging
 }
 
 enum StatusMappings {
@@ -32,9 +33,14 @@ enum StatusMappings {
         return 4
     }
 
-    static func batteryColorRole(_ battery: BatteryStatus) -> BatteryColorRole {
-        if battery.isCharging { return .charging }
+    static func batteryColorRole(
+        _ battery: BatteryStatus,
+        criticalThreshold: Int = 20
+    ) -> BatteryColorRole {
+        let threshold = min(100, max(0, criticalThreshold))
+        if battery.percentage < threshold { return .critical }
         if battery.isLowPowerMode { return .lowPower }
+        if battery.isCharging || battery.isConnectedToPower { return .charging }
         return .foreground
     }
 

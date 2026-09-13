@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIGURATION="${1:-release}"
 OPEN_APP="${2:-open}"
+BUNDLE_ID="${BUNDLE_ID:-com.lingsmbp.StatusTrio}"
+APP_NAME="${APP_NAME:-Status Trio}"
 
 case "$OPEN_APP" in
     open|no-open) ;;
@@ -12,6 +14,16 @@ case "$OPEN_APP" in
         exit 2
         ;;
 esac
+
+if [[ ! "$BUNDLE_ID" =~ ^[A-Za-z0-9.-]+$ ]]; then
+    echo "Error: BUNDLE_ID may contain only letters, numbers, periods, and hyphens." >&2
+    exit 2
+fi
+
+if [[ -z "$APP_NAME" ]]; then
+    echo "Error: APP_NAME must not be empty." >&2
+    exit 2
+fi
 
 cd "$ROOT"
 
@@ -48,25 +60,28 @@ mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 
 cp "$BIN_PATH/StatusTrio" "$CONTENTS/MacOS/StatusTrio"
 cp "$ROOT/Support/Info.plist" "$CONTENTS/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$CONTENTS/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" "$CONTENTS/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME" "$CONTENTS/Info.plist"
 iconutil --convert icns --output "$CONTENTS/Resources/AppIcon.icns" "$ICONSET_DIR"
 
 chmod +x "$CONTENTS/MacOS/StatusTrio"
 codesign --force --sign - "$APP_DIR"
 
-echo "Built $APP_DIR"
+echo "Built $APP_DIR (bundle id: $BUNDLE_ID)"
 
 if [[ "$OPEN_APP" == "open" ]]; then
-    osascript -e 'tell application id "com.lingsmbp.StatusTrio" to quit' >/dev/null 2>&1 || true
+    osascript -e "tell application id \"$BUNDLE_ID\" to quit" >/dev/null 2>&1 || true
 
     for _ in {1..20}; do
-        if [[ -z "$(lsappinfo find bundleID=com.lingsmbp.StatusTrio 2>/dev/null || true)" ]]; then
+        if [[ -z "$(lsappinfo find bundleID="$BUNDLE_ID" 2>/dev/null || true)" ]]; then
             break
         fi
         sleep 0.1
     done
 
-    if [[ -n "$(lsappinfo find bundleID=com.lingsmbp.StatusTrio 2>/dev/null || true)" ]]; then
-        echo "Error: Status Trio (com.lingsmbp.StatusTrio) is still running after the graceful quit wait; refusing to open the rebuilt bundle." >&2
+    if [[ -n "$(lsappinfo find bundleID="$BUNDLE_ID" 2>/dev/null || true)" ]]; then
+        echo "Error: $APP_NAME ($BUNDLE_ID) is still running after the graceful quit wait; refusing to open the rebuilt bundle." >&2
         exit 1
     fi
 

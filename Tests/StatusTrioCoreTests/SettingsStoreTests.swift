@@ -12,6 +12,92 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(store.iconSize, 28, accuracy: 0.001)
     }
 
+    func testBatteryDisplayDefaults() {
+        let store = SettingsStore(defaults: makeSuite().defaults)
+
+        XCTAssertTrue(store.showsBatteryPercentage)
+        XCTAssertTrue(store.showsChargingIndicator)
+        XCTAssertTrue(store.usesBatteryStatusColors)
+        XCTAssertEqual(store.batteryCriticalThreshold, 20, accuracy: 0.001)
+        XCTAssertEqual(store.batterySymbolScale, 1, accuracy: 0.001)
+        XCTAssertEqual(store.batteryIconOptions, .standard)
+    }
+
+    func testBatteryDisplaySettingsPersistAcrossStoreInstances() {
+        let suite = makeSuite()
+        defer { clear(suite) }
+
+        let first = SettingsStore(defaults: suite.defaults)
+        first.showsBatteryPercentage = false
+        first.showsChargingIndicator = false
+        first.usesBatteryStatusColors = false
+        first.batteryCriticalThreshold = 35
+        first.batterySymbolScale = 0.95
+
+        let second = SettingsStore(defaults: suite.defaults)
+        XCTAssertFalse(second.showsBatteryPercentage)
+        XCTAssertFalse(second.showsChargingIndicator)
+        XCTAssertFalse(second.usesBatteryStatusColors)
+        XCTAssertEqual(second.batteryCriticalThreshold, 35, accuracy: 0.001)
+        XCTAssertEqual(second.batterySymbolScale, 0.95, accuracy: 0.001)
+    }
+
+    func testBatteryCriticalThresholdIsClamped() {
+        let store = SettingsStore(defaults: makeSuite().defaults)
+
+        store.batteryCriticalThreshold = 140
+        XCTAssertEqual(store.batteryCriticalThreshold, 100, accuracy: 0.001)
+
+        store.batteryCriticalThreshold = -5
+        XCTAssertEqual(store.batteryCriticalThreshold, 0, accuracy: 0.001)
+    }
+
+    func testBatterySymbolSizeIsEnabledWhenEitherSymbolIsVisible() {
+        let store = SettingsStore(defaults: makeSuite().defaults)
+
+        store.showsBatteryPercentage = true
+        store.showsChargingIndicator = false
+        XCTAssertTrue(store.isBatterySymbolSizeEnabled)
+
+        store.showsBatteryPercentage = false
+        store.showsChargingIndicator = true
+        XCTAssertTrue(store.isBatterySymbolSizeEnabled)
+
+        store.showsBatteryPercentage = false
+        store.showsChargingIndicator = false
+        XCTAssertFalse(store.isBatterySymbolSizeEnabled)
+    }
+
+    func testBatterySymbolScaleIsClamped() {
+        let store = SettingsStore(defaults: makeSuite().defaults)
+
+        store.batterySymbolScale = 4
+        XCTAssertEqual(store.batterySymbolScale, 1.1, accuracy: 0.001)
+
+        store.batterySymbolScale = 0.5
+        XCTAssertEqual(store.batterySymbolScale, 0.9, accuracy: 0.001)
+    }
+
+    func testStoredBatterySymbolScaleIsClampedOnLoad() {
+        let suite = makeSuite()
+        defer { clear(suite) }
+        suite.defaults.set(4, forKey: SettingsStore.batterySymbolScaleDefaultsKey)
+
+        let store = SettingsStore(defaults: suite.defaults)
+
+        XCTAssertEqual(store.batterySymbolScale, 1.1, accuracy: 0.001)
+    }
+
+    func testStoredBatteryCriticalThresholdIsClampedOnLoad() {
+        let suite = makeSuite()
+        defer { clear(suite) }
+        suite.defaults.set(150, forKey: SettingsStore.batteryCriticalThresholdDefaultsKey)
+
+        let store = SettingsStore(defaults: suite.defaults)
+
+        XCTAssertEqual(store.batteryCriticalThreshold, 100, accuracy: 0.001)
+    }
+
     func testIconSizeAboveRangeIsClampedToUpperBound() {
         let store = SettingsStore(defaults: makeSuite().defaults)
 
@@ -57,6 +143,8 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(SettingsStore.clampedIconSize(.nan), 28, accuracy: 0.001)
         XCTAssertEqual(SettingsStore.clampedIconSize(.infinity), 28, accuracy: 0.001)
         XCTAssertEqual(SettingsStore.clampedIconSize(-.infinity), 28, accuracy: 0.001)
+        XCTAssertEqual(SettingsStore.clampedBatterySymbolScale(.nan), 1, accuracy: 0.001)
+        XCTAssertEqual(SettingsStore.clampedBatterySymbolScale(.infinity), 1, accuracy: 0.001)
     }
 
     func testIconSizeChangeNotifiesSubscribers() {
