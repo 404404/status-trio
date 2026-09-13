@@ -106,7 +106,7 @@ final class LocalizationTests: XCTestCase {
         )
     }
 
-    func testMissingKeyFallsBackToEnglish() {
+    func testGermanResourceOverridesEnglish() {
         let suite = makeSuite()
         defer { clear(suite) }
         let localization = Localization(defaults: suite.defaults, preferredLanguages: ["en"])
