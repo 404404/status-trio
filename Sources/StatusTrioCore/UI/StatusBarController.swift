@@ -3,7 +3,7 @@ import Combine
 import SwiftUI
 
 @MainActor
-final class StatusBarController: NSObject {
+final class StatusBarController: NSObject, NSPopoverDelegate {
     static let iconSnapshotDebounceInterval: TimeInterval = 0.5
     static let iconFallbackRefreshInterval: TimeInterval = 5
 
@@ -24,6 +24,7 @@ final class StatusBarController: NSObject {
     private let openSettings: () -> Void
     private let quitAction: () -> Void
     private var appearanceObservations: [NSKeyValueObservation] = []
+    private var popoverDismissMonitor: Any?
 
     init(
         store: SystemStatusStore,
@@ -173,6 +174,7 @@ final class StatusBarController: NSObject {
 
     private func configurePopover() {
         popover.behavior = .transient
+        popover.delegate = self
         let rootView = LocalizedRootView(localization: localization) {
             StatusPopoverView(
                 store: store,
@@ -201,7 +203,33 @@ final class StatusBarController: NSObject {
                 of: button,
                 preferredEdge: .minY
             )
+            // Status-item clicks come from the system menu bar process, so the
+            // modern activate() can be ignored by the user-activation policy.
+            NSApp.activate(ignoringOtherApps: true)
+            popover.contentViewController?.view.window?.makeKey()
+            installPopoverDismissMonitor()
         }
+    }
+
+    private func installPopoverDismissMonitor() {
+        removePopoverDismissMonitor()
+        popoverDismissMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown]
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.popover.performClose(nil)
+            }
+        }
+    }
+
+    private func removePopoverDismissMonitor() {
+        guard let popoverDismissMonitor else { return }
+        NSEvent.removeMonitor(popoverDismissMonitor)
+        self.popoverDismissMonitor = nil
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        removePopoverDismissMonitor()
     }
 
     private func render(snapshot: StatusSnapshot) {
