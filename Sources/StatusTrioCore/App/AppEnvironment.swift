@@ -3,14 +3,20 @@ import AppKit
 @MainActor
 final class AppEnvironment {
     let store: SystemStatusStore
+    let settings: SettingsStore
     let statusBarController: StatusBarController
+    let settingsWindowController: SettingsWindowController
 
     init(
         store: SystemStatusStore,
-        statusBarController: StatusBarController
+        settings: SettingsStore,
+        statusBarController: StatusBarController,
+        settingsWindowController: SettingsWindowController
     ) {
         self.store = store
+        self.settings = settings
         self.statusBarController = statusBarController
+        self.settingsWindowController = settingsWindowController
     }
 
     static func makeStore(
@@ -31,9 +37,19 @@ final class AppEnvironment {
             wifiMonitor: WiFiMonitor(),
             volumeMonitor: VolumeMonitor()
         )
-        let controller = StatusBarController(store: store) {
-            NSApplication.shared.terminate(nil)
-        }
-        return AppEnvironment(store: store, statusBarController: controller)
+        let settings = SettingsStore()
+        let settingsWindowController = SettingsWindowController(store: settings)
+        let controller = StatusBarController(
+            store: store,
+            settings: settings,
+            openSettings: { settingsWindowController.show() },
+            quitAction: { NSApplication.shared.terminate(nil) }
+        )
+        return AppEnvironment(
+            store: store,
+            settings: settings,
+            statusBarController: controller,
+            settingsWindowController: settingsWindowController
+        )
     }
 }

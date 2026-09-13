@@ -2,7 +2,11 @@ import AppKit
 
 @MainActor
 enum StatusMenuBuilder {
-    static func makeMenu(version: String) -> NSMenu {
+    static func makeMenu(
+        version: String,
+        settingsTarget: AnyObject?,
+        settingsAction: Selector?
+    ) -> NSMenu {
         let menu = NSMenu()
 
         let versionItem = NSMenuItem(
@@ -14,11 +18,12 @@ enum StatusMenuBuilder {
         menu.addItem(versionItem)
 
         let settingsItem = NSMenuItem(
-            title: StatusPresentation.settingsPlaceholder,
-            action: nil,
+            title: StatusPresentation.settingsAction,
+            action: settingsAction,
             keyEquivalent: ""
         )
-        settingsItem.isEnabled = false
+        settingsItem.target = settingsTarget
+        settingsItem.isEnabled = settingsAction != nil
         menu.addItem(settingsItem)
         menu.addItem(.separator())
 

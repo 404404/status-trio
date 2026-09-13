@@ -58,8 +58,8 @@ final class StatusPresentationTests: XCTestCase {
         }
     }
 
-    func testSettingsPlaceholder() {
-        XCTAssertEqual(StatusPresentation.settingsPlaceholder, "设置… · 即将推出")
+    func testSettingsAction() {
+        XCTAssertEqual(StatusPresentation.settingsAction, "设置…")
     }
 
     func testStatusItemAccessibilitySummaryIncludesAllThreeStatuses() {

@@ -12,12 +12,22 @@ final class StatusBarController: NSObject {
     private let statusItem: NSStatusItem
     private let popover = NSPopover()
     private let store: SystemStatusStore
+    private let settings: SettingsStore
     private var cancellable: AnyCancellable?
+    private var iconSizeCancellable: AnyCancellable?
+    private let openSettings: () -> Void
     private let quitAction: () -> Void
     private var appearanceObservations: [NSKeyValueObservation] = []
 
-    init(store: SystemStatusStore, quitAction: @escaping () -> Void) {
+    init(
+        store: SystemStatusStore,
+        settings: SettingsStore,
+        openSettings: @escaping () -> Void,
+        quitAction: @escaping () -> Void
+    ) {
         self.store = store
+        self.settings = settings
+        self.openSettings = openSettings
         self.quitAction = quitAction
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
@@ -32,6 +42,12 @@ final class StatusBarController: NSObject {
             .dropFirst()
             .sink { [weak self] snapshot in
                 self?.render(snapshot: snapshot)
+            }
+
+        iconSizeCancellable = settings.$iconSize
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                self?.renderLatestSnapshot()
             }
 
         appearanceObservations.append(NSApp.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
@@ -93,7 +109,11 @@ final class StatusBarController: NSObject {
     private func configurePopover() {
         popover.behavior = .transient
         let hostingController = NSHostingController(
-            rootView: StatusPopoverView(store: store, quit: quitAction)
+            rootView: StatusPopoverView(
+                store: store,
+                openSettings: handleOpenSettings,
+                quit: quitAction
+            )
         )
         hostingController.sizingOptions = [.preferredContentSize]
         popover.contentViewController = hostingController
@@ -116,6 +136,7 @@ final class StatusBarController: NSObject {
         guard let button = statusItem.button else { return }
         button.image = StatusIconRenderer.image(
             snapshot: snapshot,
+            size: settings.iconSize,
             appearance: Self.resolvedAppearance(button: button)
         )
         button.setAccessibilityLabel(StatusPresentation.statusItemAccessibilityLabel)
@@ -139,8 +160,17 @@ final class StatusBarController: NSObject {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0"
     }
 
+    @objc private func handleOpenSettings() {
+        popover.performClose(nil)
+        openSettings()
+    }
+
     private func showMenu() {
-        let menu = StatusMenuBuilder.makeMenu(version: Self.appVersion)
+        let menu = StatusMenuBuilder.makeMenu(
+            version: Self.appVersion,
+            settingsTarget: self,
+            settingsAction: #selector(handleOpenSettings)
+        )
         guard let button = statusItem.button else { return }
         menu.popUp(
             positioning: nil,

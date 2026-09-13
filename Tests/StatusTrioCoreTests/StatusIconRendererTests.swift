@@ -221,12 +221,12 @@ final class StatusIconRendererTests: XCTestCase {
         let appearance = try XCTUnwrap(NSAppearance(named: .aqua))
         let image = StatusIconRenderer.image(
             snapshot: .placeholder,
-            size: 20,
+            size: 28,
             appearance: appearance
         )
 
-        XCTAssertEqual(image.size.width, 20, accuracy: 0.01)
-        XCTAssertEqual(image.size.height, 20, accuracy: 0.01)
+        XCTAssertEqual(image.size.width, 28, accuracy: 0.01)
+        XCTAssertEqual(image.size.height, 28, accuracy: 0.01)
 
         let tiff = try XCTUnwrap(image.tiffRepresentation)
         let bitmap = try XCTUnwrap(NSBitmapImageRep(data: tiff))

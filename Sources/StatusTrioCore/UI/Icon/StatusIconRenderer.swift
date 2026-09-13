@@ -2,11 +2,9 @@ import AppKit
 import CoreGraphics
 
 enum StatusIconRenderer {
-    static let baseSize: CGFloat = 20
-
     static func image(
         snapshot: StatusSnapshot,
-        size: CGFloat = baseSize,
+        size: CGFloat,
         appearance: NSAppearance
     ) -> NSImage {
         let image = NSImage(size: NSSize(width: size, height: size))

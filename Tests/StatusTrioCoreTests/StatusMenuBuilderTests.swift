@@ -4,15 +4,19 @@ import XCTest
 
 @MainActor
 final class StatusMenuBuilderTests: XCTestCase {
-    func testMenuContainsVersionPlaceholderAndQuit() {
-        let menu = StatusMenuBuilder.makeMenu(version: "1.0.0")
+    func testMenuContainsVersionSettingsAndQuit() {
+        let menu = StatusMenuBuilder.makeMenu(
+            version: "1.0.0",
+            settingsTarget: nil,
+            settingsAction: nil
+        )
         let versionItem = menu.items[0]
         let settingsItem = menu.items[1]
         let quitItem = menu.items[3]
 
         XCTAssertEqual(menu.items.map(\.title), [
             "Status Trio 1.0.0",
-            "设置… · 即将推出",
+            "设置…",
             "",
             "退出 Status Trio"
         ])
@@ -23,6 +27,24 @@ final class StatusMenuBuilderTests: XCTestCase {
         XCTAssertEqual(quitItem.keyEquivalentModifierMask, .command)
         XCTAssertTrue(quitItem.target === NSApplication.shared)
         XCTAssertEqual(quitItem.action, #selector(NSApplication.terminate(_:)))
+    }
+
+    func testSettingsItemUsesProvidedTargetAndAction() {
+        let target = SettingsTarget()
+        let menu = StatusMenuBuilder.makeMenu(
+            version: "1.0.0",
+            settingsTarget: target,
+            settingsAction: #selector(SettingsTarget.openSettings)
+        )
+        let settingsItem = menu.items[1]
+
+        XCTAssertTrue(settingsItem.isEnabled)
+        XCTAssertTrue(settingsItem.target === target)
+        XCTAssertEqual(settingsItem.action, #selector(SettingsTarget.openSettings))
+    }
+
+    private final class SettingsTarget: NSObject {
+        @objc func openSettings() {}
     }
 
     func testClickClassification() {

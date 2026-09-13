@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum StatusPresentation {
-    static let settingsPlaceholder = "设置… · 即将推出"
+    static let settingsAction = "设置…"
     static let statusItemAccessibilityLabel = "Status Trio"
 
     static func statusItemAccessibilityValue(_ snapshot: StatusSnapshot) -> String {
@@ -105,6 +105,7 @@ enum StatusPresentation {
 
 struct StatusPopoverView: View {
     @ObservedObject var store: SystemStatusStore
+    let openSettings: () -> Void
     let quit: () -> Void
 
     var body: some View {
@@ -132,10 +133,10 @@ struct StatusPopoverView: View {
 
             Divider()
 
-            Button(StatusPresentation.settingsPlaceholder) {}
-                .buttonStyle(.plain)
-                .disabled(true)
-                .foregroundStyle(.secondary)
+            Button(StatusPresentation.settingsAction) {
+                openSettings()
+            }
+            .buttonStyle(.plain)
 
             Button("退出 Status Trio") {
                 quit()
