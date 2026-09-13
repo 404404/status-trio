@@ -1,6 +1,7 @@
 "menu.version" = "Status Trio %@";
 "menu.settings" = "설정…";
 "menu.quit" = "Status Trio 종료";
+"menu.checkForUpdates" = "업데이트 확인…";
 "settings.title" = "설정";
 "settings.language" = "언어";
 "settings.language.followSystem" = "시스템 설정 따르기";
@@ -19,6 +20,9 @@
 "settings.battery.statusColorsDescription" = "배터리 부족은 빨간색, 저전력 모드는 노란색, 충전 중 또는 전원 연결은 초록색으로 표시합니다. 끄면 원호는 일반 전경색을 사용하고 잔량과 번개는 흰색으로 유지됩니다.";
 "settings.battery.criticalThreshold" = "배터리 부족 임계값";
 "settings.battery.criticalThresholdDescription" = "이 값 미만은 배터리 부족으로 간주하여 빨간색으로 표시합니다.";
+"settings.updates.title" = "업데이트";
+"settings.updates.automatic" = "자동으로 업데이트 확인";
+"settings.updates.check" = "업데이트 확인…";
 "battery.title" = "배터리 · %d%%";
 "battery.state.notPresent" = "배터리 없음";
 "battery.state.charged" = "충전 완료";

@@ -28,5 +28,11 @@
     <true/>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Used to show the current Wi-Fi network name in the popover.</string>
+    <key>SUEnableInstallerLauncherService</key>
+    <true/>
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/lingyired/status-trio/main/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>N5FLwhXCzo7Z/8z3lOWbOJ7aW04hvXxI7LUk+6f+yDQ=</string>
 </dict>
 </plist>

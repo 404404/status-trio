@@ -1,5 +1,6 @@
 enum LocalizationKey: String, CaseIterable, Hashable, Sendable {
     case menuVersion = "menu.version"
+    case menuCheckForUpdates = "menu.checkForUpdates"
     case menuSettings = "menu.settings"
     case menuQuit = "menu.quit"
 
@@ -21,6 +22,9 @@ enum LocalizationKey: String, CaseIterable, Hashable, Sendable {
     case settingsBatteryStatusColorsDescription = "settings.battery.statusColorsDescription"
     case settingsBatteryCriticalThreshold = "settings.battery.criticalThreshold"
     case settingsBatteryCriticalThresholdDescription = "settings.battery.criticalThresholdDescription"
+    case settingsUpdatesTitle = "settings.updates.title"
+    case settingsUpdatesAutomatic = "settings.updates.automatic"
+    case settingsUpdatesCheck = "settings.updates.check"
 
     case batteryTitle = "battery.title"
     case batteryStateNotPresent = "battery.state.notPresent"

@@ -1,6 +1,7 @@
 "menu.version" = "Status Trio %@";
 "menu.settings" = "الإعدادات…";
 "menu.quit" = "إنهاء Status Trio";
+"menu.checkForUpdates" = "التحقق من وجود تحديثات…";
 "settings.title" = "الإعدادات";
 "settings.language" = "اللغة";
 "settings.language.followSystem" = "اتباع النظام";
@@ -19,6 +20,9 @@
 "settings.battery.statusColorsDescription" = "البطارية المنخفضة باللون الأحمر، ووضع الطاقة المنخفضة بالأصفر، والشحن أو الاتصال بالطاقة بالأخضر.";
 "settings.battery.criticalThreshold" = "حد البطارية المنخفضة";
 "settings.battery.criticalThresholdDescription" = "تُعتبر المستويات الأقل من هذا الحد منخفضة وتُعرض باللون الأحمر.";
+"settings.updates.title" = "التحديثات";
+"settings.updates.automatic" = "التحقق تلقائيًا من وجود تحديثات";
+"settings.updates.check" = "التحقق من وجود تحديثات…";
 "battery.title" = "البطارية · %d%%";
 "battery.state.notPresent" = "لا توجد بطارية";
 "battery.state.charged" = "ممتلئة بالكامل";

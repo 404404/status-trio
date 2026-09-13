@@ -8,9 +8,15 @@ let package = Package(
     products: [
         .executable(name: "StatusTrio", targets: ["StatusTrio"])
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.0.0")
+    ],
     targets: [
         .target(
             name: "StatusTrioCore",
+            dependencies: [
+                .product(name: "Sparkle", package: "Sparkle")
+            ],
             path: "Sources/StatusTrioCore",
             resources: [.process("Resources")],
             linkerSettings: [

@@ -1,6 +1,7 @@
 "menu.version" = "Status Trio %@";
 "menu.settings" = "Réglages…";
 "menu.quit" = "Quitter Status Trio";
+"menu.checkForUpdates" = "Rechercher les mises à jour…";
 "settings.title" = "Réglages";
 "settings.language" = "Langue";
 "settings.language.followSystem" = "Suivre le système";
@@ -19,6 +20,9 @@
 "settings.battery.statusColorsDescription" = "Batterie faible en rouge, mode économie d’énergie en jaune, charge ou secteur en vert.";
 "settings.battery.criticalThreshold" = "Seuil de batterie faible";
 "settings.battery.criticalThresholdDescription" = "Les niveaux inférieurs à ce seuil sont considérés comme faibles et affichés en rouge.";
+"settings.updates.title" = "Mises à jour";
+"settings.updates.automatic" = "Rechercher automatiquement les mises à jour";
+"settings.updates.check" = "Rechercher les mises à jour…";
 "battery.title" = "Batterie · %d%%";
 "battery.state.notPresent" = "Aucune batterie";
 "battery.state.charged" = "Entièrement chargée";

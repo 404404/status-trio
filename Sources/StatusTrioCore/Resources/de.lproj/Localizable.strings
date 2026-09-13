@@ -1,6 +1,7 @@
 "menu.version" = "Status Trio %@";
 "menu.settings" = "Einstellungen…";
 "menu.quit" = "Status Trio beenden";
+"menu.checkForUpdates" = "Nach Updates suchen…";
 "settings.title" = "Einstellungen";
 "settings.language" = "Sprache";
 "settings.language.followSystem" = "Systemeinstellung folgen";
@@ -19,6 +20,9 @@
 "settings.battery.statusColorsDescription" = "Niedriger Ladestand rot, Energiesparmodus gelb und Laden bzw. Netzbetrieb grün.";
 "settings.battery.criticalThreshold" = "Schwellenwert für niedrigen Ladestand";
 "settings.battery.criticalThresholdDescription" = "Werte unterhalb dieses Schwellenwerts gelten als niedrig und werden rot angezeigt.";
+"settings.updates.title" = "Updates";
+"settings.updates.automatic" = "Automatisch nach Updates suchen";
+"settings.updates.check" = "Nach Updates suchen…";
 "battery.title" = "Batterie · %d%%";
 "battery.state.notPresent" = "Keine Batterie";
 "battery.state.charged" = "Vollständig geladen";

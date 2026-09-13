@@ -1,6 +1,7 @@
 "menu.version" = "Status Trio %@";
 "menu.settings" = "Настройки…";
 "menu.quit" = "Завершить Status Trio";
+"menu.checkForUpdates" = "Проверить обновления…";
 "settings.title" = "Настройки";
 "settings.language" = "Язык";
 "settings.language.followSystem" = "Как в системе";
@@ -19,6 +20,9 @@
 "settings.battery.statusColorsDescription" = "Низкий заряд — красный, режим энергосбережения — жёлтый, зарядка или питание от сети — зелёный.";
 "settings.battery.criticalThreshold" = "Порог низкого заряда";
 "settings.battery.criticalThresholdDescription" = "Уровни ниже этого порога считаются низкими и отображаются красным.";
+"settings.updates.title" = "Обновления";
+"settings.updates.automatic" = "Автоматически проверять обновления";
+"settings.updates.check" = "Проверить обновления…";
 "battery.title" = "Батарея · %d%%";
 "battery.state.notPresent" = "Батарея отсутствует";
 "battery.state.charged" = "Полностью заряжена";

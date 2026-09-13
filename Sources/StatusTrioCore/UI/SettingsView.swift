@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var store: SettingsStore
+    @ObservedObject private var updaterManager = UpdaterManager.shared
     @EnvironmentObject private var localization: Localization
 
     var body: some View {
@@ -150,6 +151,27 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(localization.string(.settingsUpdatesTitle))
+                    .font(.headline)
+
+                Toggle(
+                    localization.string(.settingsUpdatesAutomatic),
+                    isOn: Binding(
+                        get: { updaterManager.automaticallyChecksForUpdates },
+                        set: { updaterManager.automaticallyChecksForUpdates = $0 }
+                    )
+                )
+                .disabled(!updaterManager.canCheckForUpdates)
+
+                Button(localization.string(.settingsUpdatesCheck)) {
+                    updaterManager.checkForUpdates()
+                }
+                .disabled(!updaterManager.canCheckForUpdates)
             }
         }
         .padding(20)
