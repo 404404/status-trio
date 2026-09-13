@@ -1,6 +1,6 @@
 # Popup Battery Details Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Show battery percentage, charged/charging state, estimated time to full, and a Battery Settings shortcut in the popup.
 
@@ -31,7 +31,7 @@
 - Modify: `Sources/StatusTrioCore/Monitoring/BatteryMonitor.swift`
 - Test: `Tests/StatusTrioCoreTests/BatteryMonitorTests.swift`
 
-- [ ] **Step 1: Write failing parser and monitor tests**
+- [x] **Step 1: Write failing parser and monitor tests**
 
 Add these tests to `BatteryMonitorTests` after `testParserConvertsValidInternalBatteryDescription`:
 
@@ -104,7 +104,7 @@ func testMonitorOnlyEmitsTimeWhileCharging() async {
 }
 ```
 
-- [ ] **Step 2: Run the focused tests and verify failure**
+- [x] **Step 2: Run the focused tests and verify failure**
 
 Run:
 
@@ -114,7 +114,7 @@ bash scripts/test.sh BatteryMonitorTests
 
 Expected: compilation fails because `BatteryReading` and `BatteryStatus` do not yet define `isCharged` or `timeToFullChargeMinutes`.
 
-- [ ] **Step 3: Add fields and parsing**
+- [x] **Step 3: Add fields and parsing**
 
 Change `BatteryReading` in `BatteryMonitor.swift` to:
 
@@ -147,7 +147,7 @@ return BatteryReading(
 )
 ```
 
-- [ ] **Step 4: Extend `BatteryStatus` and emit the new fields**
+- [x] **Step 4: Extend `BatteryStatus` and emit the new fields**
 
 Add `isCharged` and `timeToFullChargeMinutes` to `BatteryStatus` in `StatusSnapshot.swift` with an explicit initializer whose defaults preserve existing call sites:
 
@@ -198,7 +198,7 @@ status = BatteryStatus(
 
 For the missing/non-present branches, pass `isCharged: false` and `timeToFullChargeMinutes: nil`.
 
-- [ ] **Step 5: Run the focused tests**
+- [x] **Step 5: Run the focused tests**
 
 Run:
 
@@ -208,7 +208,7 @@ bash scripts/test.sh BatteryMonitorTests
 
 Expected: all `BatteryMonitorTests` pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add Sources/StatusTrioCore/Monitoring/BatteryMonitor.swift \
@@ -224,7 +224,7 @@ git commit -m "feat: read battery charged state and time to full"
 - Modify: `Tests/StatusTrioCoreTests/StatusPresentationTests.swift`
 - Modify: `Tests/StatusTrioCoreTests/StatusSnapshotTests.swift`
 
-- [ ] **Step 1: Write failing presentation tests**
+- [x] **Step 1: Write failing presentation tests**
 
 Replace `testBatterySubtitlePriority` with:
 
@@ -323,7 +323,7 @@ timeToFullChargeMinutes: Int? = nil,
 
 and pass both fields to `BatteryStatus`.
 
-- [ ] **Step 2: Add snapshot default assertions**
+- [x] **Step 2: Add snapshot default assertions**
 
 In `StatusSnapshotTests.testSnapshotPlaceholderHasStableDefaults`, add:
 
@@ -332,7 +332,7 @@ XCTAssertFalse(snapshot.battery.isCharged)
 XCTAssertNil(snapshot.battery.timeToFullChargeMinutes)
 ```
 
-- [ ] **Step 3: Run the focused tests and verify failure**
+- [x] **Step 3: Run the focused tests and verify failure**
 
 Run:
 
@@ -342,7 +342,7 @@ bash scripts/test.sh StatusPresentationTests
 
 Expected: compilation fails because `batteryTitle` and `batteryTimeToFullText` do not exist.
 
-- [ ] **Step 4: Implement formatting in `StatusPresentation`**
+- [x] **Step 4: Implement formatting in `StatusPresentation`**
 
 Add next to the existing battery presentation helpers:
 
@@ -384,7 +384,7 @@ static func batterySubtitle(_ battery: BatteryStatus) -> String {
 }
 ```
 
-- [ ] **Step 5: Run the focused tests**
+- [x] **Step 5: Run the focused tests**
 
 Run:
 
@@ -394,7 +394,7 @@ bash scripts/test.sh StatusPresentationTests
 
 Expected: all `StatusPresentationTests` pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add Sources/StatusTrioCore/UI/StatusPopoverView.swift \
@@ -413,7 +413,7 @@ git commit -m "feat: format battery charged state and time to full"
 - Modify: `Tests/StatusTrioCoreTests/StatusPresentationTests.swift`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write failing URL and copy tests**
+- [x] **Step 1: Write failing URL and copy tests**
 
 Add to `StatusMenuBuilderTests.testSystemSettingsURLFallbackOrder`:
 
@@ -433,7 +433,7 @@ Add to `StatusPresentationTests.testSettingsAction`:
 XCTAssertEqual(StatusPresentation.openBatterySettingsAction, "打开电源设置")
 ```
 
-- [ ] **Step 2: Run the focused tests and verify failure**
+- [x] **Step 2: Run the focused tests and verify failure**
 
 Run:
 
@@ -443,7 +443,7 @@ bash scripts/test.sh StatusMenuBuilderTests
 
 Expected: compilation fails because `batterySettingsURLs` does not exist.
 
-- [ ] **Step 3: Add the battery row component**
+- [x] **Step 3: Add the battery row component**
 
 Create `BatteryStatusView.swift`:
 
@@ -492,7 +492,7 @@ struct BatteryStatusView: View {
 }
 ```
 
-- [ ] **Step 4: Wire the popup and settings URL**
+- [x] **Step 4: Wire the popup and settings URL**
 
 In `StatusPresentation`, add:
 
@@ -538,7 +538,7 @@ Update README's battery feature bullet to:
 - Battery percentage, charged/charging state, estimated time to full, and a Battery Settings shortcut.
 ```
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 
@@ -549,7 +549,7 @@ bash scripts/test.sh StatusPresentationTests
 
 Expected: both suites pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add Sources/StatusTrioCore/UI/BatteryStatusView.swift \
@@ -566,7 +566,7 @@ git commit -m "feat: add popup battery details and settings shortcut"
 **Files:**
 - Verify only; no source changes expected
 
-- [ ] **Step 1: Run the full test suite**
+- [x] **Step 1: Run the full test suite**
 
 ```bash
 bash scripts/test.sh
@@ -574,7 +574,7 @@ bash scripts/test.sh
 
 Expected: all tests pass.
 
-- [ ] **Step 2: Inspect the diff and repository state**
+- [x] **Step 2: Inspect the diff and repository state**
 
 ```bash
 git diff --check
@@ -584,7 +584,7 @@ git log --oneline --decorate -5
 
 Expected: no whitespace errors, clean tracked worktree, and the specification plus three implementation commits are present.
 
-- [ ] **Step 3: Build the release app bundle without launching it**
+- [x] **Step 3: Build the release app bundle without launching it**
 
 ```bash
 bash scripts/build-app.sh release no-open
@@ -592,7 +592,7 @@ bash scripts/build-app.sh release no-open
 
 Expected: `dist/StatusTrio.app` builds and receives an ad-hoc signature.
 
-- [ ] **Step 4: Manually verify popup states**
+- [x] **Step 4: Manually verify popup states**
 
 Launch the built app and check:
 
