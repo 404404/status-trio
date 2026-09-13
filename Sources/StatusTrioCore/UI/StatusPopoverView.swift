@@ -1,5 +1,6 @@
 import SwiftUI
 
+@MainActor
 enum StatusPresentation {
     static let statusItemAccessibilityLabel = "Status Trio"
 
