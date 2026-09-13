@@ -43,10 +43,7 @@ final class LocalizationTests: XCTestCase {
 
     func testEveryLanguageHasEveryNonEmptyKey() throws {
         for language in AppLanguage.allCases {
-            let bundle = try XCTUnwrap(
-                Bundle.module.url(forResource: language.rawValue, withExtension: "lproj")
-                    .flatMap(Bundle.init(url:))
-            )
+            let bundle = try XCTUnwrap(Localization.resourceBundle(for: language))
 
             for key in LocalizationKey.allCases {
                 let value = bundle.localizedString(forKey: key.rawValue, value: nil, table: nil)
@@ -78,10 +75,7 @@ final class LocalizationTests: XCTestCase {
         ]
 
         for language in AppLanguage.allCases {
-            let bundle = try XCTUnwrap(
-                Bundle.module.url(forResource: language.rawValue, withExtension: "lproj")
-                    .flatMap(Bundle.init(url:))
-            )
+            let bundle = try XCTUnwrap(Localization.resourceBundle(for: language))
 
             for (key, expectedCount) in expectedPlaceholderCounts {
                 let value = bundle.localizedString(forKey: key.rawValue, value: nil, table: nil)
