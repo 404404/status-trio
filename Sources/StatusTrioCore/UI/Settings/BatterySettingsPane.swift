@@ -61,8 +61,7 @@ struct BatterySettingsPane: View {
                 HStack(spacing: 12) {
                     Slider(
                         value: $store.batteryCriticalThreshold,
-                        in: SettingsStore.batteryCriticalThresholdRange,
-                        step: 1
+                        in: SettingsStore.batteryCriticalThresholdRange
                     )
                     .disabled(!store.usesBatteryStatusColors)
                     .accessibilityLabel(
