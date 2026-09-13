@@ -41,7 +41,7 @@
 - Create: `Sources/StatusTrioCore/Localization/AppLanguage.swift`
 - Create: `Tests/StatusTrioCoreTests/AppLanguageTests.swift`
 
-- [ ] **Step 1: Write failing resolution tests**
+- [x] **Step 1: Write failing resolution tests**
 
 ```swift
 import XCTest
@@ -81,13 +81,13 @@ final class AppLanguageTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2: Run the focused test and verify failure**
+- [x] **Step 2: Run the focused test and verify failure**
 
 Run: `bash scripts/test.sh AppLanguageTests`
 
 Expected: compilation fails because `AppLanguage` does not exist.
 
-- [ ] **Step 3: Implement `AppLanguage`**
+- [x] **Step 3: Implement `AppLanguage`**
 
 Define all twelve cases with their BCP-47 raw values, native names, locale, layout direction, and this resolver:
 
@@ -132,13 +132,13 @@ static func match(_ identifier: String) -> AppLanguage? {
 
 `layoutDirection` returns `.rightToLeft` only for `.arabic`; `nsLayoutDirection` maps the same value to `NSUserInterfaceLayoutDirection`.
 
-- [ ] **Step 4: Run the focused tests**
+- [x] **Step 4: Run the focused tests**
 
 Run: `bash scripts/test.sh AppLanguageTests`
 
 Expected: all `AppLanguageTests` pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Sources/StatusTrioCore/Localization/AppLanguage.swift \
