@@ -58,7 +58,14 @@ SIZES
 rm -rf "$APP_DIR"
 mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 
+CORE_RESOURCE_BUNDLE="$BIN_PATH/StatusTrio_StatusTrioCore.bundle"
+if [[ ! -d "$CORE_RESOURCE_BUNDLE" ]]; then
+    echo "Error: missing SwiftPM resource bundle at $CORE_RESOURCE_BUNDLE." >&2
+    exit 1
+fi
+
 cp "$BIN_PATH/StatusTrio" "$CONTENTS/MacOS/StatusTrio"
+cp -R "$CORE_RESOURCE_BUNDLE" "$CONTENTS/Resources/"
 cp "$ROOT/Support/Info.plist" "$CONTENTS/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$CONTENTS/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" "$CONTENTS/Info.plist"
