@@ -425,17 +425,17 @@ git commit -m "feat: add localization resources and runtime service"
 - Modify: `Sources/StatusTrioCore/App/AppEnvironment.swift`
 - Modify: `Tests/StatusTrioCoreTests/SettingsWindowControllerTests.swift`
 
-- [ ] **Step 1: Update the window title test first**
+- [x] **Step 1: Update the window title test first**
 
 Construct the controller with a fixed-language `Localization`, then assert `window.title == "设置"`. Add a second assertion after switching to German that the existing window title becomes `"Einstellungen"`.
 
-- [ ] **Step 2: Run the focused test and verify failure**
+- [x] **Step 2: Run the focused test and verify failure**
 
 Run: `bash scripts/test.sh SettingsWindowControllerTests`
 
 Expected: compilation fails because the controller does not yet accept `Localization`.
 
-- [ ] **Step 3: Inject localization and add the picker**
+- [x] **Step 3: Inject localization and add the picker**
 
 `SettingsView` uses `@EnvironmentObject private var localization: Localization`. Add a language section before icon size:
 
@@ -469,15 +469,15 @@ VStack(alignment: .leading, spacing: 8) {
 
 Replace every settings literal with its `LocalizationKey`.
 
-- [ ] **Step 4: Refresh the window title and layout direction**
+- [x] **Step 4: Refresh the window title and layout direction**
 
 `SettingsWindowController` stores `Localization`, injects it with `.environmentObject`, and subscribes to `$resolvedLanguage`. Update both `window.title` and `window.contentView?.userInterfaceLayoutDirection` from that subscription and when creating the window.
 
-- [ ] **Step 5: Wire `AppEnvironment`**
+- [x] **Step 5: Wire `AppEnvironment`**
 
 Create one `Localization()` in `AppEnvironment.live()`, pass it to `SettingsWindowController` and `StatusBarController`, and retain it as an `AppEnvironment` property.
 
-- [ ] **Step 6: Run focused and regression tests**
+- [x] **Step 6: Run focused and regression tests**
 
 Run: `bash scripts/test.sh SettingsWindowControllerTests`
 
@@ -487,7 +487,7 @@ Run: `swift test`
 
 Expected: pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add Sources/StatusTrioCore/UI/SettingsView.swift \

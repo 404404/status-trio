@@ -3,12 +3,42 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var store: SettingsStore
+    @EnvironmentObject private var localization: Localization
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
+                Text(localization.string(.settingsLanguage))
+                    .font(.headline)
+
+                Picker(
+                    localization.string(.settingsLanguage),
+                    selection: Binding(
+                        get: { localization.preference },
+                        set: { localization.setPreference($0) }
+                    )
+                ) {
+                    Text(localization.string(.settingsLanguageFollowSystem))
+                        .tag(LanguagePreference.system)
+
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(language.nativeName)
+                            .tag(LanguagePreference.language(language))
+                    }
+                }
+                .labelsHidden()
+
+                Text(localization.string(.settingsLanguageDescription))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("图标渲染范围")
+                    Text(localization.string(.settingsIconSize))
                     Spacer()
                     Text("\(Int(store.iconSize)) pt")
                         .monospacedDigit()
@@ -19,8 +49,13 @@ struct SettingsView: View {
                     in: SettingsStore.iconSizeRange,
                     step: 1
                 )
-                .accessibilityLabel("图标渲染范围")
-                .accessibilityValue("\(Int(store.iconSize)) 点")
+                .accessibilityLabel(localization.string(.settingsIconSize))
+                .accessibilityValue(
+                    localization.format(
+                        .settingsIconSizeAccessibilityValue,
+                        Int(store.iconSize)
+                    )
+                )
             }
 
             HStack(spacing: 12) {
@@ -28,7 +63,7 @@ struct SettingsView: View {
                     size: store.iconSize,
                     options: store.batteryIconOptions
                 )
-                Text("调整菜单栏图标的渲染尺寸，可选 20–32 pt。")
+                Text(localization.string(.settingsIconSizeDescription))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -37,19 +72,25 @@ struct SettingsView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("电池显示")
+                Text(localization.string(.settingsBatteryTitle))
                     .font(.headline)
 
-                Toggle("显示电量数字", isOn: $store.showsBatteryPercentage)
-                Toggle("充电/连接电源时显示闪电", isOn: $store.showsChargingIndicator)
+                Toggle(
+                    localization.string(.settingsBatteryShowPercentage),
+                    isOn: $store.showsBatteryPercentage
+                )
+                Toggle(
+                    localization.string(.settingsBatteryShowChargingIndicator),
+                    isOn: $store.showsChargingIndicator
+                )
 
-                Text("开启后，正在充电或已连接电源时，电量数字会替换为白色闪电；关闭则继续显示数字。")
+                Text(localization.string(.settingsBatteryChargingDescription))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 HStack {
-                    Text("电量数字/闪电大小")
+                    Text(localization.string(.settingsBatterySymbolScale))
                     Spacer()
                     Text("\(Int(store.batterySymbolScale * 100))%")
                         .monospacedDigit()
@@ -62,10 +103,12 @@ struct SettingsView: View {
                     step: 0.05
                 )
                 .disabled(!store.isBatterySymbolSizeEnabled)
-                .accessibilityLabel("电量数字和闪电大小")
+                .accessibilityLabel(
+                    localization.string(.settingsBatterySymbolScaleAccessibility)
+                )
                 .accessibilityValue("\(Int(store.batterySymbolScale * 100))%")
 
-                Text("数字和闪电使用同一尺寸，调整这里会同步改变两者。")
+                Text(localization.string(.settingsBatterySymbolScaleDescription))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -74,15 +117,18 @@ struct SettingsView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {
-                Toggle("根据状态改变圆弧颜色", isOn: $store.usesBatteryStatusColors)
+                Toggle(
+                    localization.string(.settingsBatteryStatusColors),
+                    isOn: $store.usesBatteryStatusColors
+                )
 
-                Text("低电量显示红色，省电模式显示黄色，连接电源或正在充电显示绿色。关闭后圆弧使用普通前景色，数字和闪电仍为白色。")
+                Text(localization.string(.settingsBatteryStatusColorsDescription))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 HStack {
-                    Text("低电量阈值")
+                    Text(localization.string(.settingsBatteryCriticalThreshold))
                     Spacer()
                     Text("\(Int(store.batteryCriticalThreshold))%")
                         .monospacedDigit()
@@ -95,10 +141,12 @@ struct SettingsView: View {
                     step: 1
                 )
                 .disabled(!store.usesBatteryStatusColors)
-                .accessibilityLabel("低电量阈值")
+                .accessibilityLabel(
+                    localization.string(.settingsBatteryCriticalThreshold)
+                )
                 .accessibilityValue("\(Int(store.batteryCriticalThreshold))%")
 
-                Text("低于该阈值时视为低电量，并使用红色。")
+                Text(localization.string(.settingsBatteryCriticalThresholdDescription))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

@@ -4,17 +4,20 @@ import AppKit
 final class AppEnvironment {
     let store: SystemStatusStore
     let settings: SettingsStore
+    let localization: Localization
     let statusBarController: StatusBarController
     let settingsWindowController: SettingsWindowController
 
     init(
         store: SystemStatusStore,
         settings: SettingsStore,
+        localization: Localization,
         statusBarController: StatusBarController,
         settingsWindowController: SettingsWindowController
     ) {
         self.store = store
         self.settings = settings
+        self.localization = localization
         self.statusBarController = statusBarController
         self.settingsWindowController = settingsWindowController
     }
@@ -38,7 +41,11 @@ final class AppEnvironment {
             volumeMonitor: VolumeMonitor(outputController: CoreAudioOutputController())
         )
         let settings = SettingsStore()
-        let settingsWindowController = SettingsWindowController(store: settings)
+        let localization = Localization()
+        let settingsWindowController = SettingsWindowController(
+            store: settings,
+            localization: localization
+        )
         let controller = StatusBarController(
             store: store,
             settings: settings,
@@ -48,6 +55,7 @@ final class AppEnvironment {
         return AppEnvironment(
             store: store,
             settings: settings,
+            localization: localization,
             statusBarController: controller,
             settingsWindowController: settingsWindowController
         )

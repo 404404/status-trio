@@ -86,10 +86,14 @@ final class Localization: ObservableObject {
     }
 
     func string(_ key: LocalizationKey) -> String {
-        if let value = localizedString(key, in: resolvedLanguage) {
+        string(key, language: resolvedLanguage)
+    }
+
+    func string(_ key: LocalizationKey, language: AppLanguage) -> String {
+        if let value = localizedString(key, in: language) {
             return value
         }
-        if resolvedLanguage != .english,
+        if language != .english,
            let value = localizedString(key, in: .english) {
             return value
         }
