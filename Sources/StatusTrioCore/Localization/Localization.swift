@@ -138,8 +138,8 @@ final class Localization: ObservableObject {
 
     static func resourceBundle(for language: AppLanguage) -> Bundle? {
         Bundle.module
-            .url(forResource: language.rawValue, withExtension: "lproj")
-            .flatMap(Bundle.init(url:))
+            .path(forResource: language.rawValue, ofType: "lproj")
+            .flatMap(Bundle.init(path:))
     }
 
     private func bundle(for language: AppLanguage) -> Bundle? {
