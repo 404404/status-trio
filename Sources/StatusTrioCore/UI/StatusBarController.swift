@@ -14,7 +14,7 @@ final class StatusBarController: NSObject {
     private let store: SystemStatusStore
     private var cancellable: AnyCancellable?
     private let quitAction: () -> Void
-    private var appearanceObservation: NSKeyValueObservation?
+    private var appearanceObservations: [NSKeyValueObservation] = []
 
     init(store: SystemStatusStore, quitAction: @escaping () -> Void) {
         self.store = store
@@ -24,7 +24,8 @@ final class StatusBarController: NSObject {
 
         configureButton()
         configurePopover()
-        render(snapshot: store.snapshot)
+        observeAppearanceChanges()
+        scheduleInitialRender()
 
         cancellable = store.$snapshot
             .removeDuplicates()
@@ -33,12 +34,11 @@ final class StatusBarController: NSObject {
                 self?.render(snapshot: snapshot)
             }
 
-        appearanceObservation = NSApp.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
+        appearanceObservations.append(NSApp.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
             Task { @MainActor in
-                guard let self else { return }
-                self.render(snapshot: self.store.snapshot)
+                self?.renderLatestSnapshot()
             }
-        }
+        })
     }
 
     static func clickKind(eventType: NSEvent.EventType, modifiers: NSEvent.ModifierFlags) -> ClickKind? {
@@ -57,6 +57,22 @@ final class StatusBarController: NSObject {
         button.target = self
         button.action = #selector(handleClick(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+    }
+
+    private func observeAppearanceChanges() {
+        guard let button = statusItem.button else { return }
+        appearanceObservations.append(button.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
+            Task { @MainActor in
+                self?.renderLatestSnapshot()
+            }
+        })
+    }
+
+    private func scheduleInitialRender() {
+        Task { @MainActor [weak self] in
+            await Task.yield()
+            self?.renderLatestSnapshot()
+        }
     }
 
     @objc private func handleClick(_ sender: NSStatusBarButton) {
@@ -100,10 +116,23 @@ final class StatusBarController: NSObject {
         guard let button = statusItem.button else { return }
         button.image = StatusIconRenderer.image(
             snapshot: snapshot,
-            appearance: button.effectiveAppearance
+            appearance: Self.resolvedAppearance(button: button)
         )
         button.setAccessibilityLabel(StatusPresentation.statusItemAccessibilityLabel)
         button.setAccessibilityValue(StatusPresentation.statusItemAccessibilityValue(snapshot))
+    }
+
+    private func renderLatestSnapshot() {
+        render(snapshot: store.snapshot)
+    }
+
+    static func resolvedAppearance(
+        button: NSStatusBarButton?,
+        application: NSApplication = .shared
+    ) -> NSAppearance {
+        button?.window?.effectiveAppearance
+            ?? button?.effectiveAppearance
+            ?? application.effectiveAppearance
     }
 
     private static var appVersion: String {
