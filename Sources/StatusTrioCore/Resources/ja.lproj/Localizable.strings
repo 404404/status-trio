@@ -32,7 +32,7 @@
 "battery.action.openSettings" = "バッテリー設定を開く";
 "battery.accessibility.value" = "バッテリー %d%%";
 "common.parenthetical" = "%@（%@）";
-"common.labelValue" = "%@、%@";
+"common.labelValue" = "%@ %@";
 "wifi.title" = "Wi-Fi";
 "wifi.value.bars" = "%d 本";
 "wifi.value.notAssociated" = "未接続";

@@ -32,7 +32,7 @@
 "battery.action.openSettings" = "배터리 설정 열기";
 "battery.accessibility.value" = "배터리 %d%%";
 "common.parenthetical" = "%@(%@)";
-"common.labelValue" = "%@, %@";
+"common.labelValue" = "%@ %@";
 "wifi.title" = "Wi-Fi";
 "wifi.value.bars" = "%d칸";
 "wifi.value.notAssociated" = "연결되지 않음";

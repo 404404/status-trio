@@ -32,7 +32,7 @@
 "battery.action.openSettings" = "打開電池設定";
 "battery.accessibility.value" = "電池 %d%%";
 "common.parenthetical" = "%@（%@）";
-"common.labelValue" = "%@，%@";
+"common.labelValue" = "%@ %@";
 "wifi.title" = "Wi-Fi";
 "wifi.value.bars" = "%d 格";
 "wifi.value.notAssociated" = "未關聯";
