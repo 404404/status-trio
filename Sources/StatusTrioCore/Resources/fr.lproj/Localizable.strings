@@ -6,6 +6,11 @@
 "settings.language" = "Langue";
 "settings.language.followSystem" = "Suivre le système";
 "settings.language.description" = "Les modifications s’appliquent immédiatement.";
+"settings.launchAtLogin" = "Lancer à l’ouverture de session";
+"settings.launchAtLogin.description" = "Démarre Status Trio automatiquement à l’ouverture de session.";
+"settings.launchAtLogin.requiresApproval" = "En attente d’approbation. Autorisez Status Trio dans Réglages Système › Général › Ouverture.";
+"settings.launchAtLogin.openLoginItems" = "Ouvrir les éléments d’ouverture";
+"settings.launchAtLogin.failure" = "Impossible de mettre à jour l’élément d’ouverture. Gérez-le dans Réglages Système › Général › Ouverture.";
 "settings.iconSize" = "Taille de l’icône";
 "settings.iconSize.accessibilityValue" = "%d points";
 "settings.iconSize.description" = "Ajuste la taille de rendu de l’icône dans la barre des menus de 20 à 32 pt.";

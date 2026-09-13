@@ -6,6 +6,11 @@
 "settings.language" = "语言";
 "settings.language.followSystem" = "跟随系统";
 "settings.language.description" = "更改后立即应用。";
+"settings.launchAtLogin" = "开机时启动";
+"settings.launchAtLogin.description" = "登录系统后自动启动 Status Trio。";
+"settings.launchAtLogin.requiresApproval" = "等待授权。请在“系统设置 › 通用 › 登录项”中允许 Status Trio。";
+"settings.launchAtLogin.openLoginItems" = "打开登录项设置";
+"settings.launchAtLogin.failure" = "无法更新登录项，可在“系统设置 › 通用 › 登录项”中手动管理。";
 "settings.iconSize" = "图标渲染范围";
 "settings.iconSize.accessibilityValue" = "%d 点";
 "settings.iconSize.description" = "调整菜单栏图标的渲染尺寸，可选 20–32 pt。";

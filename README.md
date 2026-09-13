@@ -15,6 +15,7 @@ Status Trio is a native macOS menu bar app that combines battery, Wi-Fi, and vol
 - Charging state, estimated time to full, Low Power Mode, and a Battery Settings shortcut.
 - Wi-Fi signal strength, current network name, and common network states.
 - System output volume and mute state.
+- Optional launch at login, with a shortcut to Login Items when macOS asks for approval.
 - Left-click popover with current status details.
 - Native right-click menu with version and quit actions.
 - Event-driven updates with a low-frequency polling fallback.

@@ -27,6 +27,7 @@ let package = Package(
                 .linkedFramework("CoreLocation"),
                 .linkedFramework("CoreAudio"),
                 .linkedFramework("Network"),
+                .linkedFramework("ServiceManagement"),
                 .linkedFramework("SystemConfiguration")
             ]
         ),

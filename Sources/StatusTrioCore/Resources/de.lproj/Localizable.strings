@@ -6,6 +6,11 @@
 "settings.language" = "Sprache";
 "settings.language.followSystem" = "Systemeinstellung folgen";
 "settings.language.description" = "Änderungen werden sofort übernommen.";
+"settings.launchAtLogin" = "Beim Anmelden starten";
+"settings.launchAtLogin.description" = "Startet Status Trio automatisch bei der Anmeldung.";
+"settings.launchAtLogin.requiresApproval" = "Warte auf Freigabe. Erlaube Status Trio in Systemeinstellungen › Allgemein › Anmeldeobjekte.";
+"settings.launchAtLogin.openLoginItems" = "Anmeldeobjekte öffnen";
+"settings.launchAtLogin.failure" = "Das Anmeldeobjekt konnte nicht aktualisiert werden. Verwalte es in Systemeinstellungen › Allgemein › Anmeldeobjekte.";
 "settings.iconSize" = "Symbolgröße";
 "settings.iconSize.accessibilityValue" = "%d Punkte";
 "settings.iconSize.description" = "Passt die Darstellungsgröße des Menüleistensymbols auf 20–32 pt an.";

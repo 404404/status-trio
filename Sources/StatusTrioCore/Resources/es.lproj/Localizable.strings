@@ -6,6 +6,11 @@
 "settings.language" = "Idioma";
 "settings.language.followSystem" = "Seguir el sistema";
 "settings.language.description" = "Los cambios se aplican inmediatamente.";
+"settings.launchAtLogin" = "Abrir al iniciar sesión";
+"settings.launchAtLogin.description" = "Inicia Status Trio automáticamente al iniciar sesión.";
+"settings.launchAtLogin.requiresApproval" = "Pendiente de aprobación. Permite Status Trio en Ajustes del Sistema › General › Ítems de inicio de sesión.";
+"settings.launchAtLogin.openLoginItems" = "Abrir ítems de inicio";
+"settings.launchAtLogin.failure" = "No se pudo actualizar el ítem de inicio. Puedes gestionarlo en Ajustes del Sistema › General › Ítems de inicio de sesión.";
 "settings.iconSize" = "Tamaño del icono";
 "settings.iconSize.accessibilityValue" = "%d puntos";
 "settings.iconSize.description" = "Ajusta el tamaño de representación del icono de la barra de menús entre 20 y 32 pt.";

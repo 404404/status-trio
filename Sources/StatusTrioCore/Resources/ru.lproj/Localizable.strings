@@ -6,6 +6,11 @@
 "settings.language" = "Язык";
 "settings.language.followSystem" = "Как в системе";
 "settings.language.description" = "Изменения применяются сразу.";
+"settings.launchAtLogin" = "Запускать при входе";
+"settings.launchAtLogin.description" = "Автоматически запускать Status Trio при входе в систему.";
+"settings.launchAtLogin.requiresApproval" = "Ожидается подтверждение. Разрешите Status Trio в «Системные настройки › Основные › Объекты входа».";
+"settings.launchAtLogin.openLoginItems" = "Открыть объекты входа";
+"settings.launchAtLogin.failure" = "Не удалось обновить объект входа. Управляйте им в «Системные настройки › Основные › Объекты входа».";
 "settings.iconSize" = "Размер значка";
 "settings.iconSize.accessibilityValue" = "%d пунктов";
 "settings.iconSize.description" = "Настраивает размер отрисовки значка в строке меню от 20 до 32 pt.";

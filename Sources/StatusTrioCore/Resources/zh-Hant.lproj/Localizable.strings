@@ -6,6 +6,11 @@
 "settings.language" = "語言";
 "settings.language.followSystem" = "跟隨系統";
 "settings.language.description" = "變更會立即套用。";
+"settings.launchAtLogin" = "開機時啟動";
+"settings.launchAtLogin.description" = "登入系統後自動啟動 Status Trio。";
+"settings.launchAtLogin.requiresApproval" = "等待授權。請在「系統設定 › 一般 › 登入項目」中允許 Status Trio。";
+"settings.launchAtLogin.openLoginItems" = "打開登入項目設定";
+"settings.launchAtLogin.failure" = "無法更新登入項目，可在「系統設定 › 一般 › 登入項目」中手動管理。";
 "settings.iconSize" = "圖示顯示尺寸";
 "settings.iconSize.accessibilityValue" = "%d 點";
 "settings.iconSize.description" = "調整選單列圖示的繪製尺寸，可選 20–32 pt。";

@@ -6,6 +6,11 @@
 "settings.language" = "Language";
 "settings.language.followSystem" = "Follow System";
 "settings.language.description" = "Changes apply immediately.";
+"settings.launchAtLogin" = "Launch at login";
+"settings.launchAtLogin.description" = "Start Status Trio automatically when you log in.";
+"settings.launchAtLogin.requiresApproval" = "Waiting for approval. Allow Status Trio in System Settings › General › Login Items.";
+"settings.launchAtLogin.openLoginItems" = "Open Login Items";
+"settings.launchAtLogin.failure" = "Couldn’t update the login item. Manage it in System Settings › General › Login Items.";
 "settings.iconSize" = "Icon Size";
 "settings.iconSize.accessibilityValue" = "%d points";
 "settings.iconSize.description" = "Adjusts the menu bar icon render size from 20–32 pt.";
