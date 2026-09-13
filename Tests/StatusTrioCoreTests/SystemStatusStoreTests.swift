@@ -118,6 +118,21 @@ final class SystemStatusStoreTests: XCTestCase {
         store.stop()
     }
 
+    func testRequestWiFiNameAccessForwardsToMonitor() {
+        let wifi = FakeWiFiMonitor()
+        let store = makeStore(
+            battery: FakeBatteryMonitor(),
+            wifi: wifi,
+            volume: FakeVolumeMonitor()
+        )
+
+        store.start()
+        store.requestWiFiNameAccess()
+
+        XCTAssertEqual(wifi.nameAccessRequestCount, 1)
+        store.stop()
+    }
+
     func testStopTwiceStopsEachMonitorExactlyOnce() {
         let battery = FakeBatteryMonitor()
         let wifi = FakeWiFiMonitor()
@@ -563,6 +578,7 @@ private final class FakeWiFiMonitor: WiFiMonitoring {
     private(set) var refreshCount = 0
     private(set) var recoverCount = 0
     private(set) var finishCount = 0
+    private(set) var nameAccessRequestCount = 0
     var onRecover: (() -> Void)?
     var onRefresh: (() -> Void)?
     private let continuation: AsyncStream<WiFiStatus>.Continuation
@@ -580,6 +596,9 @@ private final class FakeWiFiMonitor: WiFiMonitoring {
     func recover() {
         recoverCount += 1
         onRecover?()
+    }
+    func requestNameAccess() {
+        nameAccessRequestCount += 1
     }
     func send(_ value: WiFiStatus) { continuation.yield(value) }
     func finishUpdates() {

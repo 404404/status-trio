@@ -67,6 +67,7 @@ struct WiFiSystemReading: Equatable, Sendable {
     var serviceActive: Bool
     var mode: WiFiInterfaceMode
     var rssi: Int?
+    var ssid: String?
 }
 
 protocol WiFiSystemReadingProviding: AnyObject {
@@ -118,7 +119,8 @@ final class CoreWLANWiFiSystemReader: WiFiSystemReadingProviding {
             powerOn: interface.powerOn(),
             serviceActive: interface.serviceActive(),
             mode: WiFiInterfaceMode(coreWLANMode: interface.interfaceMode()),
-            rssi: interface.rssiValue()
+            rssi: interface.rssiValue(),
+            ssid: interface.ssid()
         )
     }
 }
@@ -287,6 +289,7 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
     private let continuation: AsyncStream<WiFiStatus>.Continuation
     private let systemReader: any WiFiSystemReadingProviding
     private let sharingDetector: any InternetSharingDetecting
+    private let nameAuthorizer: any WiFiNameAuthorizing
     private let eventMonitor: any WiFiEventMonitoring
     private let pathMonitor: any WiFiPathMonitoring
     private let pathQueue = DispatchQueue(label: "StatusTrio.WiFiPath")
@@ -304,6 +307,7 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
     init(
         systemReader: any WiFiSystemReadingProviding = CoreWLANWiFiSystemReader(),
         sharingDetector: any InternetSharingDetecting = SystemInternetSharingDetector(),
+        nameAuthorizer: any WiFiNameAuthorizing = CoreLocationWiFiNameAuthorizer(),
         eventMonitor: any WiFiEventMonitoring = CoreWLANWiFiEventMonitor(),
         pathMonitor: any WiFiPathMonitoring = NetworkWiFiPathMonitor(),
         staleInterval: TimeInterval = 30,
@@ -312,6 +316,7 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
     ) {
         self.systemReader = systemReader
         self.sharingDetector = sharingDetector
+        self.nameAuthorizer = nameAuthorizer
         self.eventMonitor = eventMonitor
         self.pathMonitor = pathMonitor
         self.staleInterval = staleInterval
@@ -319,6 +324,9 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
         self.now = now
         (updates, continuation) = AsyncStream.makeStream()
         super.init()
+        nameAuthorizer.onAccessChange = { [weak self] in
+            self?.refresh()
+        }
     }
 
     isolated deinit {
@@ -342,6 +350,11 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
         eventMonitor.restart(delegate: self, events: Self.monitoredEvents)
         pathMonitor.cancel()
         startPathMonitoring()
+    }
+
+    func requestNameAccess() {
+        guard lifecycle == .running, nameAuthorizer.access == .notDetermined else { return }
+        nameAuthorizer.requestAccess()
     }
 
     private func startPathMonitoring() {
@@ -369,7 +382,7 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
         guard lifecycle != .stopped else { return }
 
         guard let reading = systemReader.read() else {
-            publish(.unavailable, rssi: nil)
+            publish(.unavailable, rssi: nil, ssid: nil, nameAccess: nameAuthorizer.access)
             return
         }
 
@@ -392,7 +405,13 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
             pathExpensive: latestPath?.expensive ?? false,
             sharingActive: sharingActive
         )
-        publish(WiFiClassifier.classify(input), rssi: normalizedRSSI(reading.rssi))
+        let nameAccess = nameAuthorizer.access
+        publish(
+            WiFiClassifier.classify(input),
+            rssi: normalizedRSSI(reading.rssi),
+            ssid: nameAccess == .authorized ? normalizedSSID(reading.ssid) : nil,
+            nameAccess: nameAccess
+        )
     }
 
     nonisolated func clientConnectionInterrupted() {
@@ -462,8 +481,18 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
         continuation.finish()
     }
 
-    private func publish(_ state: WiFiState, rssi: Int?) {
-        let candidate = WiFiStatus(state: state, rssi: rssi)
+    private func publish(
+        _ state: WiFiState,
+        rssi: Int?,
+        ssid: String?,
+        nameAccess: WiFiNameAccess
+    ) {
+        let candidate = WiFiStatus(
+            state: state,
+            rssi: rssi,
+            ssid: ssid,
+            nameAccess: nameAccess
+        )
 
         if state == .unavailable {
             let currentDate = now()
@@ -508,5 +537,11 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
     private func normalizedRSSI(_ rssi: Int?) -> Int? {
         guard let rssi, rssi < 0 else { return nil }
         return rssi
+    }
+
+    private func normalizedSSID(_ ssid: String?) -> String? {
+        guard let ssid else { return nil }
+        let value = ssid.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
     }
 }

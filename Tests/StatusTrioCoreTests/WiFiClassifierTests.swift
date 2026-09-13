@@ -192,8 +192,8 @@ final class WiFiClassifierTests: XCTestCase {
         let sharingDetector = FakeInternetSharingDetector(result: false)
         let eventMonitor = FakeWiFiEventMonitor()
         let pathMonitor = FakeWiFiPathMonitor()
-        let monitor = WiFiMonitor(
-            systemReader: reader,
+        let monitor = makeMonitor(
+            reader: reader,
             sharingDetector: sharingDetector,
             eventMonitor: eventMonitor,
             pathMonitor: pathMonitor
@@ -220,6 +220,76 @@ final class WiFiClassifierTests: XCTestCase {
         XCTAssertEqual(status, WiFiStatus(state: .connected, rssi: -52))
         XCTAssertEqual(reader.readCount, 1)
         XCTAssertEqual(sharingDetector.callCount, 1)
+    }
+
+    func testRefreshPublishesNormalizedSSIDWhenAuthorized() async {
+        let reader = FakeWiFiSystemReader(
+            result: makeReading(mode: .station, rssi: -52, ssid: "  Studio Wi-Fi  ")
+        )
+        let nameAuthorizer = FakeWiFiNameAuthorizer(access: .authorized)
+        let monitor = makeMonitor(reader: reader, nameAuthorizer: nameAuthorizer)
+        var iterator = monitor.updates.makeAsyncIterator()
+
+        monitor.refresh()
+
+        let status = await iterator.next()
+        XCTAssertEqual(status?.ssid, "Studio Wi-Fi")
+        XCTAssertEqual(status?.nameAccess, .authorized)
+    }
+
+    func testRefreshNormalizesBlankSSIDToNil() async {
+        let reader = FakeWiFiSystemReader(result: makeReading(ssid: "   "))
+        let nameAuthorizer = FakeWiFiNameAuthorizer(access: .authorized)
+        let monitor = makeMonitor(reader: reader, nameAuthorizer: nameAuthorizer)
+        var iterator = monitor.updates.makeAsyncIterator()
+
+        monitor.refresh()
+
+        let status = await iterator.next()
+        XCTAssertNil(status?.ssid)
+    }
+
+    func testStartDoesNotRequestNameAccess() {
+        let reader = FakeWiFiSystemReader(result: makeReading())
+        let nameAuthorizer = FakeWiFiNameAuthorizer()
+        let monitor = makeMonitor(reader: reader, nameAuthorizer: nameAuthorizer)
+
+        monitor.start()
+
+        XCTAssertEqual(nameAuthorizer.requestCount, 0)
+        monitor.stop()
+    }
+
+    func testRequestNameAccessStopsAfterPermissionIsDenied() {
+        let reader = FakeWiFiSystemReader(result: makeReading())
+        let nameAuthorizer = FakeWiFiNameAuthorizer()
+        let monitor = makeMonitor(reader: reader, nameAuthorizer: nameAuthorizer)
+        monitor.start()
+
+        monitor.requestNameAccess()
+        nameAuthorizer.setAccess(.denied)
+        monitor.requestNameAccess()
+
+        XCTAssertEqual(nameAuthorizer.requestCount, 1)
+        monitor.stop()
+    }
+
+    func testAuthorizationChangeRefreshesAndPublishesSSID() async {
+        let reader = FakeWiFiSystemReader(result: makeReading(ssid: "Home"))
+        let nameAuthorizer = FakeWiFiNameAuthorizer()
+        let monitor = makeMonitor(reader: reader, nameAuthorizer: nameAuthorizer)
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        let initialStatus = await iterator.next()
+
+        nameAuthorizer.setAccess(.authorized)
+        let authorizedStatus = await iterator.next()
+
+        XCTAssertNil(initialStatus?.ssid)
+        XCTAssertEqual(initialStatus?.nameAccess, .notDetermined)
+        XCTAssertEqual(authorizedStatus?.ssid, "Home")
+        XCTAssertEqual(authorizedStatus?.nameAccess, .authorized)
+        monitor.stop()
     }
 
     func testRefreshUsesInternetSharingDetection() async {
@@ -704,19 +774,22 @@ final class WiFiClassifierTests: XCTestCase {
 
     private func makeReading(
         mode: WiFiInterfaceMode = .station,
-        rssi: Int? = -50
+        rssi: Int? = -50,
+        ssid: String? = nil
     ) -> WiFiSystemReading {
         WiFiSystemReading(
             powerOn: true,
             serviceActive: true,
             mode: mode,
-            rssi: rssi
+            rssi: rssi,
+            ssid: ssid
         )
     }
 
     private func makeMonitor(
         reader: FakeWiFiSystemReader,
         sharingDetector: FakeInternetSharingDetector = FakeInternetSharingDetector(result: false),
+        nameAuthorizer: FakeWiFiNameAuthorizer = FakeWiFiNameAuthorizer(),
         eventMonitor: FakeWiFiEventMonitor = FakeWiFiEventMonitor(),
         pathMonitor: FakeWiFiPathMonitor = FakeWiFiPathMonitor(),
         staleInterval: TimeInterval = 30,
@@ -726,6 +799,7 @@ final class WiFiClassifierTests: XCTestCase {
         WiFiMonitor(
             systemReader: reader,
             sharingDetector: sharingDetector,
+            nameAuthorizer: nameAuthorizer,
             eventMonitor: eventMonitor,
             pathMonitor: pathMonitor,
             staleInterval: staleInterval,
@@ -781,6 +855,26 @@ private final class FakeInternetSharingDetector: InternetSharingDetecting {
     func isActive() -> Bool? {
         callCount += 1
         return result
+    }
+}
+
+@MainActor
+private final class FakeWiFiNameAuthorizer: WiFiNameAuthorizing {
+    private(set) var access: WiFiNameAccess
+    private(set) var requestCount = 0
+    var onAccessChange: (() -> Void)?
+
+    init(access: WiFiNameAccess = .notDetermined) {
+        self.access = access
+    }
+
+    func requestAccess() {
+        requestCount += 1
+    }
+
+    func setAccess(_ access: WiFiNameAccess) {
+        self.access = access
+        onAccessChange?()
     }
 }
 

@@ -111,6 +111,9 @@ final class StatusBarController: NSObject {
         let hostingController = NSHostingController(
             rootView: StatusPopoverView(
                 store: store,
+                requestWiFiNameAccess: handleRequestWiFiNameAccess,
+                openWiFiSettings: handleOpenWiFiSettings,
+                openLocationSettings: handleOpenLocationSettings,
                 openSettings: handleOpenSettings,
                 openSoundSettings: handleOpenSoundSettings,
                 quit: quitAction
@@ -166,10 +169,37 @@ final class StatusBarController: NSObject {
         openSettings()
     }
 
+    @objc private func handleRequestWiFiNameAccess() {
+        NSApp.activate()
+        store.requestWiFiNameAccess()
+    }
+
+    @objc private func handleOpenWiFiSettings() {
+        popover.performClose(nil)
+        Self.openSystemSettings(Self.wifiSettingsURLs)
+    }
+
+    @objc private func handleOpenLocationSettings() {
+        popover.performClose(nil)
+        Self.openSystemSettings(Self.locationSettingsURLs)
+    }
+
     @objc private func handleOpenSoundSettings() {
         popover.performClose(nil)
         Self.openSystemSoundSettings()
     }
+
+    static let wifiSettingsURLs = [
+        "x-apple.systempreferences:com.apple.Network-Settings.extension",
+        "x-apple.systempreferences:com.apple.preference.network"
+    ]
+    .compactMap(URL.init(string:))
+
+    static let locationSettingsURLs = [
+        "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_LocationServices",
+        "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices"
+    ]
+    .compactMap(URL.init(string:))
 
     private static func openSystemSoundSettings() {
         let soundSettingsURLs = [
@@ -179,6 +209,12 @@ final class StatusBarController: NSObject {
         .compactMap(URL.init(string:))
 
         for url in soundSettingsURLs where NSWorkspace.shared.open(url) {
+            return
+        }
+    }
+
+    private static func openSystemSettings(_ urls: [URL]) {
+        for url in urls where NSWorkspace.shared.open(url) {
             return
         }
     }

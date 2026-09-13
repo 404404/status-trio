@@ -16,6 +16,7 @@ protocol WiFiMonitoring: AnyObject {
     func stop()
     func refresh()
     func recover()
+    func requestNameAccess()
 }
 
 @MainActor

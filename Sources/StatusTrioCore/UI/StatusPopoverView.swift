@@ -2,6 +2,9 @@ import SwiftUI
 
 enum StatusPresentation {
     static let settingsAction = "设置…"
+    static let requestWiFiNameAction = "点击显示 Wi-Fi 名称"
+    static let openLocationSettingsAction = "去设置中允许定位"
+    static let openWiFiSettingsAction = "打开 Wi-Fi 设置"
     static let statusItemAccessibilityLabel = "Status Trio"
 
     static func statusItemAccessibilityValue(_ snapshot: StatusSnapshot) -> String {
@@ -14,25 +17,7 @@ enum StatusPresentation {
             batterySummary = "无电池设备"
         }
 
-        let wifiSummary: String
-        switch snapshot.wifi.state {
-        case .connected:
-            wifiSummary = "Wi-Fi \(StatusMappings.wifiBars(rssi: snapshot.wifi.rssi)) 格"
-        case .notAssociated:
-            wifiSummary = "Wi-Fi 未关联"
-        case .off:
-            wifiSummary = "Wi-Fi 关闭"
-        case .noInternet:
-            wifiSummary = "Wi-Fi 无互联网"
-        case .hotspot:
-            wifiSummary = "Wi-Fi iPhone 热点"
-        case .temporary:
-            wifiSummary = "Wi-Fi 临时连接"
-        case .shared:
-            wifiSummary = "Wi-Fi 正在共享"
-        case .unavailable:
-            wifiSummary = "Wi-Fi 不可用"
-        }
+        let wifiSummary = wifiAccessibilitySummary(snapshot.wifi)
 
         return "\(batterySummary)，\(wifiSummary)，音量 \(volumeValue(snapshot.volume))"
     }
@@ -67,6 +52,10 @@ enum StatusPresentation {
     }
 
     static func wifiSubtitle(_ wifi: WiFiStatus) -> String {
+        if let ssid = wifi.ssid, !ssid.isEmpty {
+            return ssid
+        }
+
         switch wifi.state {
         case .connected:
             return "已连接"
@@ -84,6 +73,31 @@ enum StatusPresentation {
             return "正在共享互联网"
         case .unavailable:
             return "无法读取网络状态"
+        }
+    }
+
+    private static func wifiAccessibilitySummary(_ wifi: WiFiStatus) -> String {
+        if let ssid = wifi.ssid, !ssid.isEmpty {
+            return "Wi-Fi \(ssid)，\(wifiValue(wifi))"
+        }
+
+        switch wifi.state {
+        case .connected:
+            return "Wi-Fi \(StatusMappings.wifiBars(rssi: wifi.rssi)) 格"
+        case .notAssociated:
+            return "Wi-Fi 未关联"
+        case .off:
+            return "Wi-Fi 关闭"
+        case .noInternet:
+            return "Wi-Fi 无互联网"
+        case .hotspot:
+            return "Wi-Fi iPhone 热点"
+        case .temporary:
+            return "Wi-Fi 临时连接"
+        case .shared:
+            return "Wi-Fi 正在共享"
+        case .unavailable:
+            return "Wi-Fi 不可用"
         }
     }
 
@@ -105,6 +119,9 @@ enum StatusPresentation {
 
 struct StatusPopoverView: View {
     @ObservedObject var store: SystemStatusStore
+    let requestWiFiNameAccess: () -> Void
+    let openWiFiSettings: () -> Void
+    let openLocationSettings: () -> Void
     let openSettings: () -> Void
     let openSoundSettings: () -> Void
     let quit: () -> Void
@@ -118,11 +135,11 @@ struct StatusPopoverView: View {
                 value: "\(store.snapshot.battery.percentage)%"
             )
             Divider()
-            statusRow(
-                icon: "wifi",
-                title: "Wi-Fi",
-                subtitle: StatusPresentation.wifiSubtitle(store.snapshot.wifi),
-                value: StatusPresentation.wifiValue(store.snapshot.wifi)
+            WiFiStatusView(
+                wifi: store.snapshot.wifi,
+                onRequestNameAccess: requestWiFiNameAccess,
+                onOpenWiFiSettings: openWiFiSettings,
+                onOpenLocationSettings: openLocationSettings
             )
             Divider()
             VolumeControlsView(

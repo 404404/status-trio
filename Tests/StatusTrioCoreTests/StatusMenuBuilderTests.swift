@@ -54,4 +54,21 @@ final class StatusMenuBuilderTests: XCTestCase {
         XCTAssertNil(StatusBarController.clickKind(eventType: .leftMouseDown, modifiers: []))
         XCTAssertNil(StatusBarController.clickKind(eventType: .flagsChanged, modifiers: []))
     }
+
+    func testSystemSettingsURLFallbackOrder() {
+        XCTAssertEqual(
+            StatusBarController.wifiSettingsURLs.map(\.absoluteString),
+            [
+                "x-apple.systempreferences:com.apple.Network-Settings.extension",
+                "x-apple.systempreferences:com.apple.preference.network"
+            ]
+        )
+        XCTAssertEqual(
+            StatusBarController.locationSettingsURLs.map(\.absoluteString),
+            [
+                "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_LocationServices",
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices"
+            ]
+        )
+    }
 }

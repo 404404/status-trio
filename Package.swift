@@ -16,6 +16,7 @@ let package = Package(
                 .linkedFramework("SwiftUI"),
                 .linkedFramework("IOKit"),
                 .linkedFramework("CoreWLAN"),
+                .linkedFramework("CoreLocation"),
                 .linkedFramework("CoreAudio"),
                 .linkedFramework("Network"),
                 .linkedFramework("SystemConfiguration")

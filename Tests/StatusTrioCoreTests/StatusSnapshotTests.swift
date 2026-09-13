@@ -31,6 +31,19 @@ final class StatusSnapshotTests: XCTestCase {
 
         XCTAssertEqual(wifi.state, .unavailable)
         XCTAssertNil(wifi.rssi)
+        XCTAssertNil(wifi.ssid)
+        XCTAssertEqual(wifi.nameAccess, .notDetermined)
+    }
+
+    func testWiFiStateReportsWhetherANetworkNameCanBeRelevant() {
+        XCTAssertTrue(WiFiState.connected.isNetworkAssociated)
+        XCTAssertTrue(WiFiState.noInternet.isNetworkAssociated)
+        XCTAssertTrue(WiFiState.hotspot.isNetworkAssociated)
+        XCTAssertTrue(WiFiState.temporary.isNetworkAssociated)
+        XCTAssertTrue(WiFiState.shared.isNetworkAssociated)
+        XCTAssertFalse(WiFiState.notAssociated.isNetworkAssociated)
+        XCTAssertFalse(WiFiState.off.isNetworkAssociated)
+        XCTAssertFalse(WiFiState.unavailable.isNetworkAssociated)
     }
 
     func testVolumePlaceholderHasStableDefaults() {

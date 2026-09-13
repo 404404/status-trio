@@ -142,6 +142,11 @@ final class SystemStatusStore: ObservableObject {
         volumeController?.selectOutputDevice(device.id)
     }
 
+    func requestWiFiNameAccess() {
+        guard !hasStopped else { return }
+        wifiMonitor.requestNameAccess()
+    }
+
     func refreshAll() {
         guard !hasStopped else { return }
         batteryMonitor.refresh()

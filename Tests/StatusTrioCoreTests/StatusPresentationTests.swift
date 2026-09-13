@@ -60,6 +60,23 @@ final class StatusPresentationTests: XCTestCase {
 
     func testSettingsAction() {
         XCTAssertEqual(StatusPresentation.settingsAction, "设置…")
+        XCTAssertEqual(StatusPresentation.requestWiFiNameAction, "点击显示 Wi-Fi 名称")
+        XCTAssertEqual(StatusPresentation.openLocationSettingsAction, "去设置中允许定位")
+        XCTAssertEqual(StatusPresentation.openWiFiSettingsAction, "打开 Wi-Fi 设置")
+    }
+
+    func testWiFiSubtitlePrefersSSID() {
+        XCTAssertEqual(
+            StatusPresentation.wifiSubtitle(
+                WiFiStatus(
+                    state: .connected,
+                    rssi: -55,
+                    ssid: "Studio Wi-Fi",
+                    nameAccess: .authorized
+                )
+            ),
+            "Studio Wi-Fi"
+        )
     }
 
     func testStatusItemAccessibilitySummaryIncludesAllThreeStatuses() {
@@ -81,6 +98,28 @@ final class StatusPresentationTests: XCTestCase {
         XCTAssertEqual(
             StatusPresentation.statusItemAccessibilityValue(snapshot),
             "电池 73%（正在充电），Wi-Fi 3 格，音量 50% · 2 格"
+        )
+    }
+
+    func testStatusItemAccessibilitySummaryIncludesWiFiNameWhenAvailable() {
+        let snapshot = StatusSnapshot(
+            battery: makeBattery(percentage: 73),
+            wifi: WiFiStatus(
+                state: .connected,
+                rssi: -55,
+                ssid: "Office",
+                nameAccess: .authorized
+            ),
+            volume: VolumeStatus(
+                scalar: 0.5,
+                isMuted: false,
+                deviceName: "MacBook Pro Speakers"
+            )
+        )
+
+        XCTAssertEqual(
+            StatusPresentation.statusItemAccessibilityValue(snapshot),
+            "电池 73%，Wi-Fi Office，3 格，音量 50% · 2 格"
         )
     }
 
