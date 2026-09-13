@@ -121,6 +121,6 @@ final class SettingsStore: ObservableObject {
         return min(
             batteryCriticalThresholdRange.upperBound,
             max(batteryCriticalThresholdRange.lowerBound, value)
-        )
+        ).rounded()
     }
 }

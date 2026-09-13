@@ -144,9 +144,20 @@ enum StatusIconRenderer {
         foreground: CGColor,
         criticalColor: CGColor
     ) {
+        let showsChargingBolt = battery.isPresent
+            && (battery.isCharging || battery.isConnectedToPower)
+            && options.showsChargingIndicator
+        let hasTopGap = showsChargingBolt || options.showsPercentage
+        let topGapWidth = showsChargingBolt
+            ? StatusIconGeometry.batteryChargingBoltTopGapWidth
+            : StatusIconGeometry.batteryValueTopGapWidth
+
         context.setLineWidth(8)
         context.setStrokeColor(foreground.copy(alpha: 0.22) ?? foreground)
-        context.addPath(StatusIconGeometry.batteryTrack())
+        context.addPath(StatusIconGeometry.batteryTrack(
+            hasTopGap: hasTopGap,
+            topGapWidth: topGapWidth
+        ))
         context.strokePath()
 
         let role = options.usesStatusColors
@@ -162,7 +173,11 @@ enum StatusIconRenderer {
         )
 
         context.setStrokeColor(arcColor)
-        context.addPath(StatusIconGeometry.batteryFill(progress: StatusMappings.batteryProgress(battery)))
+        context.addPath(StatusIconGeometry.batteryFill(
+            progress: StatusMappings.batteryProgress(battery),
+            hasTopGap: hasTopGap,
+            topGapWidth: topGapWidth
+        ))
         context.strokePath()
 
         context.saveGState()
@@ -173,9 +188,7 @@ enum StatusIconRenderer {
         )
         defer { context.restoreGState() }
 
-        if battery.isPresent,
-           battery.isCharging || battery.isConnectedToPower,
-           options.showsChargingIndicator {
+        if showsChargingBolt {
             context.setFillColor(CGColor(gray: 1, alpha: 1))
             context.addPath(StatusIconGeometry.batteryChargingBolt(
                 scale: batteryChargingBoltScale(textScale: options.textScale)
