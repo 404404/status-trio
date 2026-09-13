@@ -60,7 +60,7 @@ final class StatusPresentationTests: XCTestCase {
 
     func testSettingsAction() {
         XCTAssertEqual(StatusPresentation.settingsAction, "设置…")
-        XCTAssertEqual(StatusPresentation.requestWiFiNameAction, "点击显示 Wi-Fi 名称")
+        XCTAssertEqual(StatusPresentation.requestWiFiNameAction, "允许定位以显示 Wi-Fi 名称")
         XCTAssertEqual(StatusPresentation.openLocationSettingsAction, "去设置中允许定位")
         XCTAssertEqual(StatusPresentation.openWiFiSettingsAction, "打开 Wi-Fi 设置")
     }

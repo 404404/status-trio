@@ -2,7 +2,7 @@ import SwiftUI
 
 enum StatusPresentation {
     static let settingsAction = "设置…"
-    static let requestWiFiNameAction = "点击显示 Wi-Fi 名称"
+    static let requestWiFiNameAction = "允许定位以显示 Wi-Fi 名称"
     static let openLocationSettingsAction = "去设置中允许定位"
     static let openWiFiSettingsAction = "打开 Wi-Fi 设置"
     static let statusItemAccessibilityLabel = "Status Trio"
