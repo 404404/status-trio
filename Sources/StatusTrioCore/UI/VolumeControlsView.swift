@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct VolumeControlsView: View {
+    @EnvironmentObject private var localization: Localization
     let volume: VolumeStatus
     let isEnabled: Bool
     let onVolumeChange: (Double) -> Void
@@ -19,35 +20,35 @@ struct VolumeControlsView: View {
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
 
-                Text(StatusPresentation.volumeTitle(volume))
+                Text(StatusPresentation.volumeTitle(volume, localization: localization))
                     .font(.headline.weight(.semibold))
                     .monospacedDigit()
 
                 Spacer()
 
                 Button(
-                    StatusPresentation.openSoundSettingsAction,
+                    localization.string(.volumeActionOpenSettings),
                     systemImage: "gearshape",
                     action: onOpenSoundSettings
                 )
                 .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-                .help(StatusPresentation.openSoundSettingsAction)
-                .accessibilityLabel(StatusPresentation.openSoundSettingsAction)
+                .help(localization.string(.volumeActionOpenSettings))
+                .accessibilityLabel(localization.string(.volumeActionOpenSettings))
                 .frame(width: 24, height: 24)
             }
 
             HStack(spacing: 10) {
                 Button(
-                    volume.isMuted ? "取消静音" : "静音",
+                    volume.isMuted ? localization.string(.volumeUnmuted) : localization.string(.volumeMuted),
                     systemImage: volume.isMuted ? "speaker.slash.fill" : "speaker.fill",
                     action: onToggleMute
                 )
                 .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
                 .foregroundStyle(volume.isMuted ? Color.red : Color.secondary)
-                .help(volume.isMuted ? "取消静音" : "静音")
+                .help(volume.isMuted ? localization.string(.volumeUnmuted) : localization.string(.volumeMuted))
                 .disabled(!isEnabled)
                 .frame(width: 24)
 
@@ -58,7 +59,7 @@ struct VolumeControlsView: View {
                 )
                 .tint(volume.isMuted ? Color.secondary : Color.accentColor)
                 .disabled(!isEnabled)
-                .accessibilityLabel("音量")
+                .accessibilityLabel(localization.string(.volumeAccessibilityLabel))
                 .accessibilityValue(percentageText)
 
                 Image(systemName: "speaker.wave.3.fill")
@@ -74,7 +75,7 @@ struct VolumeControlsView: View {
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
 
-                Text("输出")
+                Text(localization.string(.volumeOutputTitle))
                     .font(.headline.weight(.semibold))
             }
 

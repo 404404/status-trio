@@ -49,6 +49,7 @@ final class AppEnvironment {
         let controller = StatusBarController(
             store: store,
             settings: settings,
+            localization: localization,
             openSettings: { settingsWindowController.show() },
             quitAction: { NSApplication.shared.terminate(nil) }
         )

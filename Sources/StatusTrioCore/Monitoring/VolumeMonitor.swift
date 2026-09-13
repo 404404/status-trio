@@ -10,7 +10,7 @@ private let volumeMonitorLogger = Logger(
 struct VolumeReading: Equatable, Sendable {
     let scalar: Double?
     let isMuted: Bool
-    let deviceName: String
+    let deviceName: String?
 }
 
 protocol VolumeReadingProviding: AnyObject {
@@ -279,7 +279,7 @@ final class CoreAudioVolumeReader: VolumeReadingProviding {
         return VolumeReading(
             scalar: volumeScalar(for: deviceID).map(Double.init),
             isMuted: isMuted(for: deviceID),
-            deviceName: deviceName(for: deviceID) ?? "默认输出设备"
+            deviceName: deviceName(for: deviceID)
         )
     }
 

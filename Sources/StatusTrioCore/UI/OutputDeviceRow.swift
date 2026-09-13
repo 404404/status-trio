@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct OutputDeviceRow: View {
+    @EnvironmentObject private var localization: Localization
     let device: AudioOutputDevice
     let onSelect: (AudioOutputDevice) -> Void
 
@@ -19,13 +20,19 @@ struct OutputDeviceRow: View {
                 }
                 .frame(width: 28, height: 28)
 
-                Text(device.name)
+                Text(displayName)
                     .font(.body.weight(device.isCurrent ? .semibold : .regular))
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 if let volume = device.volume, volume.isFinite {
-                    Text(volume.formatted(.percent.precision(.fractionLength(0))))
+                    Text(
+                        volume.formatted(
+                            .percent
+                                .precision(.fractionLength(0))
+                                .locale(localization.resolvedLanguage.locale)
+                        )
+                    )
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
@@ -34,7 +41,15 @@ struct OutputDeviceRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(device.isCurrent ? "当前输出设备" : "切换到 \(device.name)")
-        .accessibilityValue(device.isCurrent ? "当前输出设备" : "")
+        .help(
+            device.isCurrent
+                ? localization.string(.volumeOutputCurrent)
+                : localization.format(.volumeOutputSwitchTo, displayName)
+        )
+        .accessibilityValue(device.isCurrent ? localization.string(.volumeOutputCurrent) : "")
+    }
+
+    private var displayName: String {
+        device.name ?? localization.string(.volumeOutputUnknownDevice)
     }
 }

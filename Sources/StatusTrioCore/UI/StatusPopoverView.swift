@@ -1,158 +1,226 @@
 import SwiftUI
 
 enum StatusPresentation {
-    static let settingsAction = "设置…"
-    static let requestWiFiNameAction = "允许定位以显示 Wi-Fi 名称"
-    static let openLocationSettingsAction = "去设置中允许定位"
-    static let openWiFiSettingsAction = "打开 Wi-Fi 设置"
-    static let openBatterySettingsAction = "打开电源设置"
-    static let openSoundSettingsAction = "打开声音设置"
     static let statusItemAccessibilityLabel = "Status Trio"
 
-    static func statusItemAccessibilityValue(_ snapshot: StatusSnapshot) -> String {
+    static func statusItemAccessibilityValue(
+        _ snapshot: StatusSnapshot,
+        localization: Localization
+    ) -> String {
+        let battery = snapshot.battery
         let batterySummary: String
-        if snapshot.battery.isPresent {
-            let percentage = "电池 \(snapshot.battery.percentage)%"
-            let subtitle = batterySubtitle(snapshot.battery)
-            batterySummary = subtitle == "电池供电" ? percentage : "\(percentage)（\(subtitle)）"
+        if battery.isPresent {
+            let percentage = localization.format(
+                .batteryAccessibilityValue,
+                battery.percentage
+            )
+            let subtitle = batterySubtitle(battery, localization: localization)
+            if isOrdinaryBatteryState(battery) {
+                batterySummary = percentage
+            } else {
+                batterySummary = localization.format(
+                    .commonParenthetical,
+                    percentage,
+                    subtitle
+                )
+            }
         } else {
-            batterySummary = "无电池设备"
+            batterySummary = localization.string(.batteryStateNotPresent)
         }
 
-        let wifiSummary = wifiAccessibilitySummary(snapshot.wifi)
+        let wifiSummary = wifiAccessibilitySummary(
+            snapshot.wifi,
+            localization: localization
+        )
+        let volumeSummary = localization.format(
+            .accessibilityVolume,
+            volumeValue(snapshot.volume, localization: localization)
+        )
 
-        return "\(batterySummary)，\(wifiSummary)，音量 \(volumeValue(snapshot.volume))"
+        return localization.format(
+            .accessibilityStatus,
+            batterySummary,
+            wifiSummary,
+            volumeSummary
+        )
     }
 
-    static func batteryTitle(_ battery: BatteryStatus) -> String {
-        "电池 · \(battery.percentage)%"
+    static func batteryTitle(
+        _ battery: BatteryStatus,
+        localization: Localization
+    ) -> String {
+        localization.format(.batteryTitle, battery.percentage)
     }
 
-    static func batteryTimeToFullText(minutes: Int?) -> String {
+    static func batteryTimeToFullText(
+        minutes: Int?,
+        localization: Localization
+    ) -> String {
         guard let minutes, minutes > 0 else {
-            return "正在计算充满时间"
+            return localization.string(.batteryStateCalculatingTimeToFull)
         }
 
         let hours = minutes / 60
         let remainingMinutes = minutes % 60
 
         if hours == 0 {
-            return "预计 \(remainingMinutes) 分钟充满"
+            return localization.format(
+                .batteryTimeToFullMinutes,
+                remainingMinutes
+            )
         }
         if remainingMinutes == 0 {
-            return "预计 \(hours) 小时充满"
+            return localization.format(.batteryTimeToFullHours, hours)
         }
-        return "预计 \(hours) 小时 \(remainingMinutes) 分钟充满"
+        return localization.format(
+            .batteryTimeToFullHoursMinutes,
+            hours,
+            remainingMinutes
+        )
     }
 
-    static func batterySubtitle(_ battery: BatteryStatus) -> String {
-        if !battery.isPresent { return "无电池设备" }
-        if battery.isCharged { return "已充满" }
+    static func batterySubtitle(
+        _ battery: BatteryStatus,
+        localization: Localization
+    ) -> String {
+        if !battery.isPresent {
+            return localization.string(.batteryStateNotPresent)
+        }
+        if battery.isCharged {
+            return localization.string(.batteryStateCharged)
+        }
         if battery.isCharging {
-            return batteryTimeToFullText(minutes: battery.timeToFullChargeMinutes)
+            return batteryTimeToFullText(
+                minutes: battery.timeToFullChargeMinutes,
+                localization: localization
+            )
         }
-        if battery.isLowPowerMode { return "低电量模式" }
-        if battery.isConnectedToPower { return "已连接电源" }
-        return "电池供电"
+        if battery.isLowPowerMode {
+            return localization.string(.batteryStateLowPowerMode)
+        }
+        if battery.isConnectedToPower {
+            return localization.string(.batteryStateConnectedToPower)
+        }
+        return localization.string(.batteryStateOnBattery)
     }
 
-    static func wifiValue(_ wifi: WiFiStatus) -> String {
+    static func wifiValue(
+        _ wifi: WiFiStatus,
+        localization: Localization
+    ) -> String {
         switch wifi.state {
         case .connected:
-            return "\(StatusMappings.wifiBars(rssi: wifi.rssi)) 格"
+            return localization.format(
+                .wifiValueBars,
+                StatusMappings.wifiBars(rssi: wifi.rssi)
+            )
         case .notAssociated:
-            return "未关联"
+            return localization.string(.wifiValueNotAssociated)
         case .off:
-            return "关闭"
+            return localization.string(.wifiValueOff)
         case .noInternet:
-            return "无互联网"
+            return localization.string(.wifiValueNoInternet)
         case .hotspot:
-            return "iPhone 热点"
+            return localization.string(.wifiValueHotspot)
         case .temporary:
-            return "临时连接"
+            return localization.string(.wifiValueTemporary)
         case .shared:
-            return "正在共享"
+            return localization.string(.wifiValueShared)
         case .unavailable:
-            return "不可用"
+            return localization.string(.wifiValueUnavailable)
         }
     }
 
-    static func wifiSubtitle(_ wifi: WiFiStatus) -> String {
+    static func wifiSubtitle(
+        _ wifi: WiFiStatus,
+        localization: Localization
+    ) -> String {
         if let ssid = wifi.ssid, !ssid.isEmpty {
             return ssid
         }
 
         switch wifi.state {
         case .connected:
-            return "已连接"
+            return localization.string(.wifiSubtitleConnected)
         case .notAssociated:
-            return "Wi-Fi 开启，未关联"
+            return localization.string(.wifiSubtitleNotAssociated)
         case .off:
-            return "Wi-Fi 关闭或不可用"
+            return localization.string(.wifiSubtitleOff)
         case .noInternet:
-            return "网络可达性检查失败"
+            return localization.string(.wifiSubtitleNoInternet)
         case .hotspot:
-            return "使用 iPhone 热点"
+            return localization.string(.wifiSubtitleHotspot)
         case .temporary:
-            return "临时 Wi-Fi 连接"
+            return localization.string(.wifiSubtitleTemporary)
         case .shared:
-            return "正在共享互联网"
+            return localization.string(.wifiSubtitleShared)
         case .unavailable:
-            return "无法读取网络状态"
+            return localization.string(.wifiSubtitleUnavailable)
         }
     }
 
-    private static func wifiAccessibilitySummary(_ wifi: WiFiStatus) -> String {
-        if let ssid = wifi.ssid, !ssid.isEmpty {
-            return "Wi-Fi \(ssid)，\(wifiValue(wifi))"
-        }
-
-        switch wifi.state {
-        case .connected:
-            return "Wi-Fi \(StatusMappings.wifiBars(rssi: wifi.rssi)) 格"
-        case .notAssociated:
-            return "Wi-Fi 未关联"
-        case .off:
-            return "Wi-Fi 关闭"
-        case .noInternet:
-            return "Wi-Fi 无互联网"
-        case .hotspot:
-            return "Wi-Fi iPhone 热点"
-        case .temporary:
-            return "Wi-Fi 临时连接"
-        case .shared:
-            return "Wi-Fi 正在共享"
-        case .unavailable:
-            return "Wi-Fi 不可用"
-        }
-    }
-
-    static func volumeTitle(_ volume: VolumeStatus) -> String {
+    static func volumeTitle(
+        _ volume: VolumeStatus,
+        localization: Localization
+    ) -> String {
         guard let scalar = volume.scalar, scalar.isFinite else {
-            return "音量 · —"
+            return localization.string(.volumeTitleUnavailable)
         }
         let percentage = Int((min(1, max(0, scalar)) * 100).rounded())
-        return "音量 · \(percentage)%"
+        return localization.format(.volumeTitle, percentage)
     }
 
-    static func volumeValue(_ volume: VolumeStatus) -> String {
+    static func volumeValue(
+        _ volume: VolumeStatus,
+        localization: Localization
+    ) -> String {
         guard let scalar = volume.scalar, scalar.isFinite else { return "—" }
         let clampedScalar = min(1, max(0, scalar))
         let percentage = Int((clampedScalar * 100).rounded())
+        if volume.isMuted {
+            return localization.string(.volumeMuted)
+        }
         let steps = StatusMappings.volumeSteps(
             scalar: clampedScalar,
             isMuted: volume.isMuted
         ) ?? 0
-        return volume.isMuted ? "静音" : "\(percentage)% · \(steps) 格"
+        return localization.format(.volumeValue, percentage, steps)
     }
 
-    static func volumeSubtitle(_ volume: VolumeStatus) -> String {
-        volume.deviceName ?? "无默认输出设备"
+    static func volumeSubtitle(
+        _ volume: VolumeStatus,
+        localization: Localization
+    ) -> String {
+        volume.deviceName ?? localization.string(.volumeNoDefaultDevice)
+    }
+
+    private static func wifiAccessibilitySummary(
+        _ wifi: WiFiStatus,
+        localization: Localization
+    ) -> String {
+        let value = wifiValue(wifi, localization: localization)
+        if let ssid = wifi.ssid, !ssid.isEmpty {
+            return localization.format(.wifiAccessibilityWithSSID, ssid, value)
+        }
+        return localization.format(
+            .commonLabelValue,
+            localization.string(.wifiTitle),
+            wifiSubtitle(wifi, localization: localization)
+        )
+    }
+
+    private static func isOrdinaryBatteryState(_ battery: BatteryStatus) -> Bool {
+        battery.isPresent
+            && !battery.isCharged
+            && !battery.isCharging
+            && !battery.isLowPowerMode
+            && !battery.isConnectedToPower
     }
 }
 
 struct StatusPopoverView: View {
     @ObservedObject var store: SystemStatusStore
+    @EnvironmentObject private var localization: Localization
     let requestWiFiNameAccess: () -> Void
     let openBatterySettings: () -> Void
     let openWiFiSettings: () -> Void
@@ -186,12 +254,12 @@ struct StatusPopoverView: View {
 
             Divider()
 
-            Button(StatusPresentation.settingsAction) {
+            Button(localization.string(.menuSettings)) {
                 openSettings()
             }
             .buttonStyle(.plain)
 
-            Button("退出 Status Trio") {
+            Button(localization.string(.menuQuit)) {
                 quit()
             }
             .buttonStyle(.plain)
@@ -200,5 +268,4 @@ struct StatusPopoverView: View {
         .padding(14)
         .frame(width: 300)
     }
-
 }

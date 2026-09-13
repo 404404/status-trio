@@ -23,7 +23,7 @@ final class CoreAudioOutputController: AudioOutputControlling {
 
                 return AudioOutputDevice(
                     id: deviceID,
-                    name: deviceName(for: deviceID) ?? "未知输出设备",
+                    name: deviceName(for: deviceID),
                     isCurrent: deviceID == currentDeviceID,
                     volume: volume(for: deviceID)
                 )
@@ -32,7 +32,7 @@ final class CoreAudioOutputController: AudioOutputControlling {
                 if lhs.isCurrent != rhs.isCurrent {
                     return lhs.isCurrent
                 }
-                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+                return (lhs.name ?? "").localizedStandardCompare(rhs.name ?? "") == .orderedAscending
             }
     }
 

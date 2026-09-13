@@ -1,4 +1,4 @@
-enum LocalizationKey: String, CaseIterable, Sendable {
+enum LocalizationKey: String, CaseIterable, Hashable, Sendable {
     case menuVersion = "menu.version"
     case menuSettings = "menu.settings"
     case menuQuit = "menu.quit"

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct WiFiStatusIcon: View {
+    @EnvironmentObject private var localization: Localization
     let wifi: WiFiStatus
 
     var body: some View {
@@ -8,6 +9,6 @@ struct WiFiStatusIcon: View {
             .renderingMode(.template)
             .foregroundStyle(.secondary)
             .frame(width: 24, height: 24)
-            .accessibilityLabel("Wi-Fi \(StatusPresentation.wifiValue(wifi))")
+            .accessibilityLabel(localization.format(.commonLabelValue, localization.string(.wifiTitle), StatusPresentation.wifiValue(wifi, localization: localization)))
     }
 }

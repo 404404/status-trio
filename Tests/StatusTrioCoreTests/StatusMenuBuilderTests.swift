@@ -4,11 +4,13 @@ import XCTest
 
 @MainActor
 final class StatusMenuBuilderTests: XCTestCase {
-    func testMenuContainsVersionSettingsAndQuit() {
+    func testMenuContainsLocalizedVersionSettingsAndQuit() {
+        let localization = makeLocalization(.simplifiedChinese)
         let menu = StatusMenuBuilder.makeMenu(
             version: "1.0.0",
             settingsTarget: nil,
-            settingsAction: nil
+            settingsAction: nil,
+            localization: localization
         )
         let versionItem = menu.items[0]
         let settingsItem = menu.items[1]
@@ -27,6 +29,36 @@ final class StatusMenuBuilderTests: XCTestCase {
         XCTAssertEqual(quitItem.keyEquivalentModifierMask, .command)
         XCTAssertTrue(quitItem.target === NSApplication.shared)
         XCTAssertEqual(quitItem.action, #selector(NSApplication.terminate(_:)))
+        XCTAssertEqual(menu.userInterfaceLayoutDirection, .leftToRight)
+    }
+
+    func testGermanMenuUsesSelectedLanguage() {
+        let localization = makeLocalization(.german)
+        let menu = StatusMenuBuilder.makeMenu(
+            version: "1.0.0",
+            settingsTarget: nil,
+            settingsAction: nil,
+            localization: localization
+        )
+
+        XCTAssertEqual(menu.items.map(\.title), [
+            "Status Trio 1.0.0",
+            "Einstellungen…",
+            "",
+            "Status Trio beenden"
+        ])
+    }
+
+    func testArabicMenuUsesRightToLeftLayout() {
+        let localization = makeLocalization(.arabic)
+        let menu = StatusMenuBuilder.makeMenu(
+            version: "1.0.0",
+            settingsTarget: nil,
+            settingsAction: nil,
+            localization: localization
+        )
+
+        XCTAssertEqual(menu.userInterfaceLayoutDirection, .rightToLeft)
     }
 
     func testSettingsItemUsesProvidedTargetAndAction() {
@@ -34,7 +66,8 @@ final class StatusMenuBuilderTests: XCTestCase {
         let menu = StatusMenuBuilder.makeMenu(
             version: "1.0.0",
             settingsTarget: target,
-            settingsAction: #selector(SettingsTarget.openSettings)
+            settingsAction: #selector(SettingsTarget.openSettings),
+            localization: makeLocalization(.simplifiedChinese)
         )
         let settingsItem = menu.items[1]
 
@@ -82,5 +115,14 @@ final class StatusMenuBuilderTests: XCTestCase {
                 "x-apple.systempreferences:com.apple.preference.battery"
             ]
         )
+    }
+
+    private func makeLocalization(_ language: AppLanguage) -> Localization {
+        let suiteName = "StatusTrioCoreTests.StatusMenuBuilder.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let localization = Localization(defaults: defaults, preferredLanguages: ["en"])
+        localization.setPreference(.language(language))
+        return localization
     }
 }

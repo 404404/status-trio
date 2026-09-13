@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct BatteryStatusView: View {
+    @EnvironmentObject private var localization: Localization
     let battery: BatteryStatus
     let onOpenBatterySettings: () -> Void
 
@@ -12,10 +13,10 @@ struct BatteryStatusView: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(StatusPresentation.batteryTitle(battery))
+                Text(StatusPresentation.batteryTitle(battery, localization: localization))
                     .font(.headline)
                     .monospacedDigit()
-                Text(StatusPresentation.batterySubtitle(battery))
+                Text(StatusPresentation.batterySubtitle(battery, localization: localization))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -26,15 +27,15 @@ struct BatteryStatusView: View {
 
             if battery.isPresent {
                 Button(
-                    StatusPresentation.openBatterySettingsAction,
+                    localization.string(.batteryActionOpenSettings),
                     systemImage: "gearshape",
                     action: onOpenBatterySettings
                 )
                 .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-                .help(StatusPresentation.openBatterySettingsAction)
-                .accessibilityLabel(StatusPresentation.openBatterySettingsAction)
+                .help(localization.string(.batteryActionOpenSettings))
+                .accessibilityLabel(localization.string(.batteryActionOpenSettings))
                 .frame(width: 24, height: 24)
             }
         }

@@ -1,12 +1,13 @@
 import SwiftUI
 
 struct OutputDeviceList: View {
+    @EnvironmentObject private var localization: Localization
     let devices: [AudioOutputDevice]
     let onSelect: (AudioOutputDevice) -> Void
 
     var body: some View {
         if devices.isEmpty {
-            Label("无可用输出设备", systemImage: "questionmark.circle")
+            Label(localization.string(.volumeOutputEmpty), systemImage: "questionmark.circle")
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)

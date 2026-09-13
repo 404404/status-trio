@@ -16,7 +16,9 @@ final class StatusBarController: NSObject {
     private let popover = NSPopover()
     private let store: SystemStatusStore
     private let settings: SettingsStore
+    private let localization: Localization
     private var cancellable: AnyCancellable?
+    private var localizationCancellable: AnyCancellable?
     private var iconSizeCancellable: AnyCancellable?
     private var batteryOptionsCancellable: AnyCancellable?
     private let openSettings: () -> Void
@@ -26,11 +28,13 @@ final class StatusBarController: NSObject {
     init(
         store: SystemStatusStore,
         settings: SettingsStore,
+        localization: Localization,
         openSettings: @escaping () -> Void,
         quitAction: @escaping () -> Void
     ) {
         self.store = store
         self.settings = settings
+        self.localization = localization
         self.openSettings = openSettings
         self.quitAction = quitAction
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -103,6 +107,14 @@ final class StatusBarController: NSObject {
             )
         }
 
+        localizationCancellable = localization.$resolvedLanguage
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.renderLatestSnapshot()
+                }
+            }
+
         appearanceObservations.append(NSApp.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
             Task { @MainActor in
                 self?.renderLatestSnapshot()
@@ -161,8 +173,8 @@ final class StatusBarController: NSObject {
 
     private func configurePopover() {
         popover.behavior = .transient
-        let hostingController = NSHostingController(
-            rootView: StatusPopoverView(
+        let rootView = LocalizedRootView(localization: localization) {
+            StatusPopoverView(
                 store: store,
                 requestWiFiNameAccess: handleRequestWiFiNameAccess,
                 openBatterySettings: handleOpenBatterySettings,
@@ -172,7 +184,8 @@ final class StatusBarController: NSObject {
                 openSoundSettings: handleOpenSoundSettings,
                 quit: quitAction
             )
-        )
+        }
+        let hostingController = NSHostingController(rootView: rootView)
         hostingController.sizingOptions = [.preferredContentSize]
         popover.contentViewController = hostingController
     }
@@ -213,7 +226,12 @@ final class StatusBarController: NSObject {
         )
         button.setNeedsDisplay(button.bounds)
         button.setAccessibilityLabel(StatusPresentation.statusItemAccessibilityLabel)
-        button.setAccessibilityValue(StatusPresentation.statusItemAccessibilityValue(snapshot))
+        button.setAccessibilityValue(
+            StatusPresentation.statusItemAccessibilityValue(
+                snapshot,
+                localization: localization
+            )
+        )
     }
 
     private func renderLatestSnapshot() {
@@ -303,7 +321,8 @@ final class StatusBarController: NSObject {
         let menu = StatusMenuBuilder.makeMenu(
             version: Self.appVersion,
             settingsTarget: self,
-            settingsAction: #selector(handleOpenSettings)
+            settingsAction: #selector(handleOpenSettings),
+            localization: localization
         )
         guard let button = statusItem.button else { return }
         menu.popUp(

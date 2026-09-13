@@ -287,12 +287,12 @@ final class VolumeMonitorTests: XCTestCase {
         )
     }
 
-    func testReaderUsesFallbackDeviceName() {
+    func testReaderLeavesMissingDeviceNameOptional() {
         let client = FakeCoreAudioClient()
         client.configureDevice(42, scalar: 0.3, isMuted: false, name: nil)
         let reader = CoreAudioVolumeReader(client: client)
 
-        XCTAssertEqual(reader.read()?.deviceName, "默认输出设备")
+        XCTAssertNil(reader.read()?.deviceName)
     }
 
     func testFirstValueFallsBackThroughOutputElements() {

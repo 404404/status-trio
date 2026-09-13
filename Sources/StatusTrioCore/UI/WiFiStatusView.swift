@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct WiFiStatusView: View {
+    @EnvironmentObject private var localization: Localization
     let wifi: WiFiStatus
     let onRequestNameAccess: () -> Void
     let onOpenWiFiSettings: () -> Void
@@ -11,7 +12,7 @@ struct WiFiStatusView: View {
             WiFiStatusIcon(wifi: wifi)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Wi-Fi")
+                Text(localization.string(.wifiTitle))
                     .font(.headline)
 
                 subtitle
@@ -20,14 +21,14 @@ struct WiFiStatusView: View {
             Spacer()
 
             Button(
-                StatusPresentation.openWiFiSettingsAction,
+                localization.string(.wifiActionOpenSettings),
                 systemImage: "gearshape",
                 action: onOpenWiFiSettings
             )
             .labelStyle(.iconOnly)
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help(StatusPresentation.openWiFiSettingsAction)
+            .help(localization.string(.wifiActionOpenSettings))
             .frame(width: 24, height: 24)
         }
     }
@@ -41,18 +42,18 @@ struct WiFiStatusView: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
         } else if wifi.state.isNetworkAssociated && wifi.nameAccess == .notDetermined {
-            Button(StatusPresentation.requestWiFiNameAction, action: onRequestNameAccess)
+            Button(localization.string(.wifiActionRequestNameAccess), action: onRequestNameAccess)
                 .buttonStyle(.link)
                 .font(.caption)
                 .lineLimit(1)
         } else if wifi.state.isNetworkAssociated
                     && (wifi.nameAccess == .denied || wifi.nameAccess == .restricted) {
-            Button(StatusPresentation.openLocationSettingsAction, action: onOpenLocationSettings)
+            Button(localization.string(.wifiActionOpenLocationSettings), action: onOpenLocationSettings)
                 .buttonStyle(.link)
                 .font(.caption)
                 .lineLimit(1)
         } else {
-            Text(StatusPresentation.wifiSubtitle(wifi))
+            Text(StatusPresentation.wifiSubtitle(wifi, localization: localization))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)

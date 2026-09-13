@@ -5,12 +5,15 @@ enum StatusMenuBuilder {
     static func makeMenu(
         version: String,
         settingsTarget: AnyObject?,
-        settingsAction: Selector?
+        settingsAction: Selector?,
+        localization: Localization
     ) -> NSMenu {
         let menu = NSMenu()
+        menu.userInterfaceLayoutDirection =
+            localization.resolvedLanguage.nsLayoutDirection
 
         let versionItem = NSMenuItem(
-            title: "Status Trio \(version)",
+            title: localization.format(.menuVersion, version),
             action: nil,
             keyEquivalent: ""
         )
@@ -18,7 +21,7 @@ enum StatusMenuBuilder {
         menu.addItem(versionItem)
 
         let settingsItem = NSMenuItem(
-            title: StatusPresentation.settingsAction,
+            title: localization.string(.menuSettings),
             action: settingsAction,
             keyEquivalent: ""
         )
@@ -28,7 +31,7 @@ enum StatusMenuBuilder {
         menu.addItem(.separator())
 
         let quitItem = NSMenuItem(
-            title: "退出 Status Trio",
+            title: localization.string(.menuQuit),
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         )
