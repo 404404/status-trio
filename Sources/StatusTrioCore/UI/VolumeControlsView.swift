@@ -14,8 +14,9 @@ struct VolumeControlsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("系统音量")
+                Text(StatusPresentation.volumeTitle(volume))
                     .font(.headline.weight(.semibold))
+                    .monospacedDigit()
 
                 Spacer()
 
@@ -58,11 +59,6 @@ struct VolumeControlsView: View {
                 Image(systemName: "speaker.wave.3.fill")
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
-
-                Text(percentageText)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: 38, alignment: .trailing)
             }
 
             Divider()

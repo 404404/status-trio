@@ -127,6 +127,14 @@ enum StatusPresentation {
         }
     }
 
+    static func volumeTitle(_ volume: VolumeStatus) -> String {
+        guard let scalar = volume.scalar, scalar.isFinite else {
+            return "音量 · —"
+        }
+        let percentage = Int((min(1, max(0, scalar)) * 100).rounded())
+        return "音量 · \(percentage)%"
+    }
+
     static func volumeValue(_ volume: VolumeStatus) -> String {
         guard let scalar = volume.scalar, scalar.isFinite else { return "—" }
         let clampedScalar = min(1, max(0, scalar))

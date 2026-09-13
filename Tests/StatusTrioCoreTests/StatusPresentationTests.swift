@@ -172,6 +172,27 @@ final class StatusPresentationTests: XCTestCase {
         )
     }
 
+    func testVolumeTitleUsesClampedPercentage() {
+        XCTAssertEqual(
+            StatusPresentation.volumeTitle(
+                VolumeStatus(scalar: 0.5, isMuted: false, deviceName: "Speaker")
+            ),
+            "音量 · 50%"
+        )
+        XCTAssertEqual(
+            StatusPresentation.volumeTitle(
+                VolumeStatus(scalar: 0.62, isMuted: true, deviceName: "Speaker")
+            ),
+            "音量 · 62%"
+        )
+        XCTAssertEqual(
+            StatusPresentation.volumeTitle(
+                VolumeStatus(scalar: nil, isMuted: false, deviceName: nil)
+            ),
+            "音量 · —"
+        )
+    }
+
     func testVolumeValueForNilMutedAndNormalStates() {
         XCTAssertEqual(
             StatusPresentation.volumeValue(
