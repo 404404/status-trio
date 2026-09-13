@@ -63,7 +63,7 @@ cp "$ROOT/Support/Info.plist" "$CONTENTS/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$CONTENTS/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" "$CONTENTS/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME" "$CONTENTS/Info.plist"
-INFO_PLIST_COUNT="$(find "$ROOT/Sources/StatusTrioCore/Resources" -path '*.lproj/InfoPlist.strings' -type f | wc -l | tr -d ' ')"
+INFO_PLIST_COUNT="$(find "$ROOT/Sources/StatusTrioCore/Resources" -name 'InfoPlist.strings' -type f | wc -l | tr -d ' ')"
 if [[ "$INFO_PLIST_COUNT" -ne 12 ]]; then
     echo "Error: expected 12 localized InfoPlist.strings files, found $INFO_PLIST_COUNT." >&2
     exit 1
@@ -74,7 +74,7 @@ while IFS= read -r source; do
     target_dir="$CONTENTS/Resources/$language_dir"
     mkdir -p "$target_dir"
     cp "$source" "$target_dir/InfoPlist.strings"
-done < <(find "$ROOT/Sources/StatusTrioCore/Resources" -path '*.lproj/InfoPlist.strings' -type f | sort)
+done < <(find "$ROOT/Sources/StatusTrioCore/Resources" -name 'InfoPlist.strings' -type f | sort)
 
 iconutil --convert icns --output "$CONTENTS/Resources/AppIcon.icns" "$ICONSET_DIR"
 
