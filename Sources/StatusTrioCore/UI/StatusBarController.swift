@@ -284,6 +284,11 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         openSettings()
     }
 
+    @objc private func handleCheckForUpdates() {
+        popover.performClose(nil)
+        UpdaterManager.shared.checkForUpdates()
+    }
+
     @objc private func handleRequestWiFiNameAccess() {
         NSApp.activate()
         store.requestWiFiNameAccess()
@@ -350,7 +355,9 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
             version: Self.appVersion,
             settingsTarget: self,
             settingsAction: #selector(handleOpenSettings),
-            localization: localization
+            localization: localization,
+            updateTarget: self,
+            updateAction: #selector(handleCheckForUpdates)
         )
         guard let button = statusItem.button else { return }
         menu.popUp(

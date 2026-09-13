@@ -1,6 +1,7 @@
 "menu.version" = "Status Trio %@";
 "menu.settings" = "設定…";
 "menu.quit" = "結束 Status Trio";
+"menu.checkForUpdates" = "檢查更新…";
 "settings.title" = "設定";
 "settings.language" = "語言";
 "settings.language.followSystem" = "跟隨系統";
@@ -31,6 +32,9 @@
 "settings.battery.statusColorsDescription" = "低電量顯示紅色，省電模式顯示黃色，連接電源或正在充電顯示綠色。關閉後圓弧使用一般前景色，數字和閃電仍為白色。";
 "settings.battery.criticalThreshold" = "低電量門檻";
 "settings.battery.criticalThresholdDescription" = "低於此門檻時視為低電量，並以紅色顯示。";
+"settings.updates.title" = "更新";
+"settings.updates.automatic" = "自動檢查更新";
+"settings.updates.check" = "檢查更新…";
 "battery.title" = "電池 · %d%%";
 "battery.state.notPresent" = "無電池裝置";
 "battery.state.charged" = "已充滿";

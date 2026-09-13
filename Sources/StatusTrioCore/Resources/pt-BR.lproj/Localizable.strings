@@ -1,6 +1,7 @@
 "menu.version" = "Status Trio %@";
 "menu.settings" = "Ajustes…";
 "menu.quit" = "Sair do Status Trio";
+"menu.checkForUpdates" = "Verificar atualizações…";
 "settings.title" = "Ajustes";
 "settings.language" = "Idioma";
 "settings.language.followSystem" = "Seguir o sistema";
@@ -31,6 +32,9 @@
 "settings.battery.statusColorsDescription" = "Bateria fraca em vermelho, modo de baixo consumo em amarelo e carregamento ou energia conectada em verde.";
 "settings.battery.criticalThreshold" = "Limite de bateria fraca";
 "settings.battery.criticalThresholdDescription" = "Níveis abaixo deste limite são considerados baixos e exibidos em vermelho.";
+"settings.updates.title" = "Atualizações";
+"settings.updates.automatic" = "Verificar atualizações automaticamente";
+"settings.updates.check" = "Verificar atualizações…";
 "battery.title" = "Bateria · %d%%";
 "battery.state.notPresent" = "Sem bateria";
 "battery.state.charged" = "Totalmente carregada";

@@ -6,7 +6,9 @@ enum StatusMenuBuilder {
         version: String,
         settingsTarget: AnyObject?,
         settingsAction: Selector?,
-        localization: Localization
+        localization: Localization,
+        updateTarget: AnyObject? = nil,
+        updateAction: Selector? = nil
     ) -> NSMenu {
         let menu = NSMenu()
         menu.userInterfaceLayoutDirection =
@@ -19,6 +21,16 @@ enum StatusMenuBuilder {
         )
         versionItem.isEnabled = false
         menu.addItem(versionItem)
+
+        if let updateAction {
+            let updateItem = NSMenuItem(
+                title: localization.string(.menuCheckForUpdates),
+                action: updateAction,
+                keyEquivalent: ""
+            )
+            updateItem.target = updateTarget
+            menu.addItem(updateItem)
+        }
 
         let settingsItem = NSMenuItem(
             title: localization.string(.menuSettings),

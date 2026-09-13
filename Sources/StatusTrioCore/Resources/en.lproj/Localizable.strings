@@ -1,6 +1,7 @@
 "menu.version" = "Status Trio %@";
 "menu.settings" = "Settings…";
 "menu.quit" = "Quit Status Trio";
+"menu.checkForUpdates" = "Check for Updates…";
 "settings.title" = "Settings";
 "settings.language" = "Language";
 "settings.language.followSystem" = "Follow System";
@@ -31,6 +32,9 @@
 "settings.battery.statusColorsDescription" = "Low battery is red, Low Power Mode is yellow, and charging or connected power is green.";
 "settings.battery.criticalThreshold" = "Low battery threshold";
 "settings.battery.criticalThresholdDescription" = "Battery levels below this threshold are treated as low and shown in red.";
+"settings.updates.title" = "Updates";
+"settings.updates.automatic" = "Automatically check for updates";
+"settings.updates.check" = "Check for Updates…";
 "battery.title" = "Battery · %d%%";
 "battery.state.notPresent" = "No battery";
 "battery.state.charged" = "Fully charged";

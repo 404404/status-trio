@@ -56,7 +56,7 @@ done <<'SIZES'
 SIZES
 
 rm -rf "$APP_DIR"
-mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
+mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources" "$CONTENTS/Frameworks"
 
 CORE_RESOURCE_BUNDLE="$BIN_PATH/StatusTrio_StatusTrioCore.bundle"
 if [[ ! -d "$CORE_RESOURCE_BUNDLE" ]]; then
@@ -66,6 +66,19 @@ fi
 
 cp "$BIN_PATH/StatusTrio" "$CONTENTS/MacOS/StatusTrio"
 cp -R "$CORE_RESOURCE_BUNDLE" "$CONTENTS/Resources/"
+
+SPARKLE_FRAMEWORK_SOURCE="$(find "$ROOT/.build/artifacts" -path '*/Sparkle.xcframework/macos-*/Sparkle.framework' -type d -print -quit)"
+if [[ -z "$SPARKLE_FRAMEWORK_SOURCE" ]]; then
+    echo "Error: missing Sparkle.framework under .build/artifacts." >&2
+    exit 1
+fi
+
+ditto "$SPARKLE_FRAMEWORK_SOURCE" "$CONTENTS/Frameworks/Sparkle.framework"
+
+if ! otool -l "$CONTENTS/MacOS/StatusTrio" | grep -Fq 'path @executable_path/../Frameworks'; then
+    install_name_tool -add_rpath '@executable_path/../Frameworks' "$CONTENTS/MacOS/StatusTrio"
+fi
+
 cp "$ROOT/Support/Info.plist" "$CONTENTS/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$CONTENTS/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" "$CONTENTS/Info.plist"
@@ -99,6 +112,7 @@ if [[ "${SDK_VERSION%%.*}" -ge 26 ]]; then
     chmod +x "$CONTENTS/MacOS/StatusTrio"
 fi
 
+codesign --force --deep --sign - "$CONTENTS/Frameworks/Sparkle.framework"
 codesign --force --sign - "$APP_DIR"
 
 echo "Built $APP_DIR (bundle id: $BUNDLE_ID)"

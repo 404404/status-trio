@@ -1,0 +1,10 @@
+{
+  "app_name": "Status Trio",
+  "github_repo": "lingyired/status-trio",
+  "git_branch": "main",
+  "min_system_version": "15.0",
+  "bundle_name": "Status Trio.app",
+  "dmg_name": "StatusTrio.dmg",
+  "appcast_file": "appcast.xml",
+  "derived_data_prefixes": ["StatusTrio-", "Status Trio-"]
+}

@@ -1,6 +1,7 @@
 "menu.version" = "Status Trio %@";
 "menu.settings" = "設定…";
 "menu.quit" = "Status Trioを終了";
+"menu.checkForUpdates" = "アップデートを確認…";
 "settings.title" = "設定";
 "settings.language" = "言語";
 "settings.language.followSystem" = "システム設定を使用";
@@ -31,6 +32,9 @@
 "settings.battery.statusColorsDescription" = "残量不足は赤、低電力モードは黄、充電中または電源接続時は緑で表示します。オフの場合は通常の前景色を使用し、残量と稲妻は白のままです。";
 "settings.battery.criticalThreshold" = "低残量のしきい値";
 "settings.battery.criticalThresholdDescription" = "この値未満を低残量として赤で表示します。";
+"settings.updates.title" = "アップデート";
+"settings.updates.automatic" = "自動的にアップデートを確認";
+"settings.updates.check" = "アップデートを確認…";
 "battery.title" = "バッテリー · %d%%";
 "battery.state.notPresent" = "バッテリーなし";
 "battery.state.charged" = "充電完了";

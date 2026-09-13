@@ -14,6 +14,8 @@ struct SettingsDetailView: View {
             MenuBarSettingsPane(store: store)
         case .battery:
             BatterySettingsPane(store: store)
+        case .updates:
+            UpdatesSettingsPane()
         case .about:
             AboutSettingsPane()
         }
