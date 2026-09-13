@@ -164,19 +164,19 @@ struct StatusPopoverView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             BatteryStatusView(
-                battery: store.snapshot.battery,
+                battery: store.popupSnapshot.battery,
                 onOpenBatterySettings: openBatterySettings
             )
             Divider()
             WiFiStatusView(
-                wifi: store.snapshot.wifi,
+                wifi: store.popupSnapshot.wifi,
                 onRequestNameAccess: requestWiFiNameAccess,
                 onOpenWiFiSettings: openWiFiSettings,
                 onOpenLocationSettings: openLocationSettings
             )
             Divider()
             VolumeControlsView(
-                volume: store.snapshot.volume,
+                volume: store.popupSnapshot.volume,
                 isEnabled: store.isVolumeControlAvailable,
                 onVolumeChange: store.setVolume,
                 onToggleMute: store.toggleMute,

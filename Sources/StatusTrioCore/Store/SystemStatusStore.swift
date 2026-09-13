@@ -4,7 +4,10 @@ import Foundation
 
 @MainActor
 final class SystemStatusStore: ObservableObject {
+    static let popupDebounceInterval: Duration = .milliseconds(500)
+
     @Published private(set) var snapshot: StatusSnapshot
+    @Published private(set) var popupSnapshot: StatusSnapshot
 
     private let batteryMonitor: any BatteryMonitoring
     private let wifiMonitor: any WiFiMonitoring
@@ -12,9 +15,11 @@ final class SystemStatusStore: ObservableObject {
     private let volumeController: (any VolumeControlling)?
     private let refreshInterval: Duration
     private let sleep: @Sendable (Duration) async throws -> Void
+    private let popupDebounceSleep: @Sendable (Duration) async throws -> Void
     private let wakeNotificationCenter: NotificationCenter
     private var monitorTasks: [Task<Void, Never>] = []
     private var refreshTask: Task<Void, Never>?
+    private var popupPublishTask: Task<Void, Never>?
     private var wakeObserver: NSObjectProtocol?
     private var lastPublishedSnapshot: StatusSnapshot?
     private var hasStarted = false
@@ -28,6 +33,9 @@ final class SystemStatusStore: ObservableObject {
         sleep: @escaping @Sendable (Duration) async throws -> Void = {
             try await Task.sleep(for: $0)
         },
+        popupDebounceSleep: @escaping @Sendable (Duration) async throws -> Void = {
+            try await Task.sleep(for: $0)
+        },
         wakeNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
         initialSnapshot: StatusSnapshot = .placeholder
     ) {
@@ -37,8 +45,10 @@ final class SystemStatusStore: ObservableObject {
         self.volumeController = volumeMonitor as? any VolumeControlling
         self.refreshInterval = refreshInterval
         self.sleep = sleep
+        self.popupDebounceSleep = popupDebounceSleep
         self.wakeNotificationCenter = wakeNotificationCenter
         self.snapshot = initialSnapshot
+        self.popupSnapshot = initialSnapshot
     }
 
     isolated deinit {
@@ -121,10 +131,12 @@ final class SystemStatusStore: ObservableObject {
         monitorTasks.removeAll()
         refreshTask?.cancel()
         refreshTask = nil
+        popupPublishTask?.cancel()
+        popupPublishTask = nil
     }
 
     var isVolumeControlAvailable: Bool {
-        volumeController != nil && snapshot.volume.scalar != nil
+        volumeController != nil && popupSnapshot.volume.scalar != nil
     }
 
     func setVolume(_ scalar: Double) {
@@ -145,6 +157,14 @@ final class SystemStatusStore: ObservableObject {
     func requestWiFiNameAccess() {
         guard !hasStopped else { return }
         wifiMonitor.requestNameAccess()
+    }
+
+    func refreshForPopoverOpening() {
+        guard !hasStopped else { return }
+        popupPublishTask?.cancel()
+        popupPublishTask = nil
+        popupSnapshot = snapshot
+        refreshAll()
     }
 
     func refreshAll() {
@@ -176,6 +196,21 @@ final class SystemStatusStore: ObservableObject {
         guard !hasStopped, next != lastPublishedSnapshot else { return }
         lastPublishedSnapshot = next
         snapshot = next
+        schedulePopupSnapshot(next)
+    }
+
+    private func schedulePopupSnapshot(_ next: StatusSnapshot) {
+        popupPublishTask?.cancel()
+        popupPublishTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await self.popupDebounceSleep(Self.popupDebounceInterval)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            self.popupSnapshot = next
+        }
     }
 }
 

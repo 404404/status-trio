@@ -4,6 +4,9 @@ import SwiftUI
 
 @MainActor
 final class StatusBarController: NSObject {
+    static let iconSnapshotDebounceInterval: TimeInterval = 1
+    static let iconFallbackRefreshInterval: TimeInterval = 5
+
     enum ClickKind: Equatable {
         case left
         case right
@@ -37,11 +40,26 @@ final class StatusBarController: NSObject {
         observeAppearanceChanges()
         scheduleInitialRender()
 
-        cancellable = store.$snapshot
+        let snapshotUpdates = store.$snapshot
             .removeDuplicates()
             .dropFirst()
-            .sink { [weak self] snapshot in
-                self?.render(snapshot: snapshot)
+            .debounce(
+                for: .seconds(Self.iconSnapshotDebounceInterval),
+                scheduler: RunLoop.main
+            )
+            .map { _ in () }
+
+        let periodicUpdates = Timer.publish(
+            every: Self.iconFallbackRefreshInterval,
+            on: .main,
+            in: .common
+        )
+        .autoconnect()
+        .map { _ in () }
+
+        cancellable = Publishers.Merge(snapshotUpdates, periodicUpdates)
+            .sink { [weak self] in
+                self?.renderLatestSnapshot()
             }
 
         iconSizeCancellable = settings.$iconSize
@@ -129,6 +147,7 @@ final class StatusBarController: NSObject {
         if popover.isShown {
             popover.performClose(nil)
         } else {
+            store.refreshForPopoverOpening()
             popover.show(
                 relativeTo: button.bounds,
                 of: button,

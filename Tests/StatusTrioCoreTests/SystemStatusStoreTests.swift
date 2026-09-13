@@ -41,6 +41,97 @@ final class SystemStatusStoreTests: XCTestCase {
         store.stop()
     }
 
+    func testPopupDebounceIntervalIs500Milliseconds() {
+        XCTAssertEqual(SystemStatusStore.popupDebounceInterval, .milliseconds(500))
+    }
+
+    func testPopupSnapshotDebouncesRapidUpdates() async {
+        let battery = FakeBatteryMonitor()
+        let sleeper = ManualSleeper()
+        let store = SystemStatusStore(
+            batteryMonitor: battery,
+            wifiMonitor: FakeWiFiMonitor(),
+            volumeMonitor: FakeVolumeMonitor(),
+            refreshInterval: .seconds(60),
+            popupDebounceSleep: { _ in await sleeper.sleep() }
+        )
+        let finalPopupUpdate = expectation(description: "final popup snapshot published")
+        var cancellables = Set<AnyCancellable>()
+        store.$popupSnapshot
+            .dropFirst()
+            .sink { snapshot in
+                if snapshot.battery.percentage == 55 {
+                    finalPopupUpdate.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        store.start()
+        battery.send(makeBattery(percentage: 42))
+        await sleeper.waitForCallCount(1)
+        battery.send(makeBattery(percentage: 55))
+        await sleeper.waitForCallCount(2)
+
+        XCTAssertEqual(store.snapshot.battery.percentage, 55)
+        XCTAssertEqual(store.popupSnapshot.battery.percentage, 100)
+
+        sleeper.releaseAll()
+        await fulfillment(of: [finalPopupUpdate], timeout: 1)
+
+        XCTAssertEqual(store.popupSnapshot.battery.percentage, 55)
+        cancellables.removeAll()
+        store.stop()
+    }
+
+    func testOpeningPopupFlushesLatestSnapshotAndRefreshesMonitors() async {
+        let battery = FakeBatteryMonitor()
+        let wifi = FakeWiFiMonitor()
+        let volume = FakeVolumeMonitor()
+        let store = SystemStatusStore(
+            batteryMonitor: battery,
+            wifiMonitor: wifi,
+            volumeMonitor: volume,
+            refreshInterval: .seconds(60)
+        )
+
+        store.start()
+        battery.send(makeBattery(percentage: 42))
+        await drainMainActorTasks()
+
+        XCTAssertEqual(store.snapshot.battery.percentage, 42)
+        XCTAssertEqual(store.popupSnapshot.battery.percentage, 100)
+
+        store.refreshForPopoverOpening()
+
+        XCTAssertEqual(store.popupSnapshot.battery.percentage, 42)
+        XCTAssertEqual(battery.refreshCount, 1)
+        XCTAssertEqual(wifi.refreshCount, 1)
+        XCTAssertEqual(volume.refreshCount, 1)
+        store.stop()
+    }
+
+    func testStopCancelsPendingPopupSnapshot() async {
+        let battery = FakeBatteryMonitor()
+        let sleeper = ManualSleeper()
+        let store = SystemStatusStore(
+            batteryMonitor: battery,
+            wifiMonitor: FakeWiFiMonitor(),
+            volumeMonitor: FakeVolumeMonitor(),
+            refreshInterval: .seconds(60),
+            popupDebounceSleep: { _ in await sleeper.sleep() }
+        )
+
+        store.start()
+        battery.send(makeBattery(percentage: 42))
+        await sleeper.waitForCallCount(1)
+        store.stop()
+
+        sleeper.releaseAll()
+        await drainMainActorTasks()
+
+        XCTAssertEqual(store.popupSnapshot.battery.percentage, 100)
+    }
+
     func testEqualSnapshotsDoNotPublishTwice() async {
         let battery = FakeBatteryMonitor()
         let store = SystemStatusStore(
