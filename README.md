@@ -9,7 +9,7 @@ Status Trio is a native macOS menu bar app that combines battery, Wi-Fi, and vol
 ## Features
 
 - One configurable 20–32 pt menu bar icon (default 28 pt) for battery, Wi-Fi, and volume.
-- Settings window to adjust the icon render size, applied live and persisted.
+- Settings window to adjust the icon render size and language, applied live and persisted.
 - Battery percentage and charging bolt with independent visibility controls.
 - Configurable battery number/bolt size and optional arc status colors.
 - Charging state, estimated time to full, Low Power Mode, and a Battery Settings shortcut.
@@ -18,6 +18,11 @@ Status Trio is a native macOS menu bar app that combines battery, Wi-Fi, and vol
 - Left-click popover with current status details.
 - Native right-click menu with version and quit actions.
 - Event-driven updates with a low-frequency polling fallback.
+- Twelve languages with system-language following and an immediate in-app override.
+
+## Languages
+
+Status Trio follows the macOS preferred language by default and supports English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French, German, Italian, Brazilian Portuguese, Russian, and Arabic. Open Settings to choose a language manually; changes apply immediately without restarting the app.
 
 ## Status
 
