@@ -57,6 +57,7 @@ final class LocalizationTests: XCTestCase {
         let expectedPlaceholderCounts: [LocalizationKey: Int] = [
             .menuVersion: 1,
             .settingsIconSizeAccessibilityValue: 1,
+            .settingsAboutVersion: 1,
             .batteryTitle: 1,
             .batteryTimeToFullMinutes: 1,
             .batteryTimeToFullHours: 1,

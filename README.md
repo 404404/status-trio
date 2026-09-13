@@ -79,10 +79,16 @@ This creates `dist/StatusTrio.app` and opens it by default. In open mode, the sc
 bash scripts/build-app.sh release no-open
 ```
 
-To run a worktree build alongside the main app, override its bundle identifier and display name:
+To run a worktree build alongside the main app, use the worktree build helper:
 
 ```bash
-BUNDLE_ID=com.lingsmbp.StatusTrio.dev.batteryIndicatorsSettings APP_NAME="Status Trio (Battery Indicators)" bash scripts/build-app.sh release open
+bash scripts/build-worktree.sh release
+```
+
+The helper derives a development bundle identifier and display name from the current branch, so a worktree app can run at the same time as the main app. You can still override either value explicitly:
+
+```bash
+BUNDLE_ID=com.lingsmbp.StatusTrio.dev.settings-redesign APP_NAME="Status Trio (Settings Redesign)" bash scripts/build-worktree.sh release
 ```
 
 The single-instance lock is scoped by bundle identifier, so differently identified builds can run at the same time. Main builds keep using `com.lingsmbp.StatusTrio` by default; no bundle identifier change is required before merging.

@@ -86,6 +86,19 @@ done < <(find "$ROOT/Sources/StatusTrioCore/Resources" -name 'InfoPlist.strings'
 iconutil --convert icns --output "$CONTENTS/Resources/AppIcon.icns" "$ICONSET_DIR"
 
 chmod +x "$CONTENTS/MacOS/StatusTrio"
+
+# SwiftPM can record the deployment target as the SDK version in LC_BUILD_VERSION.
+# macOS uses that field to decide whether an app adopts the current design system,
+# so restore the real SDK version before signing.
+SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
+if [[ "${SDK_VERSION%%.*}" -ge 26 ]]; then
+    TOOLCHAIN_PLATFORM_VERSION="26.0"
+    VTMP_BINARY="$(mktemp "${TMPDIR:-/tmp}/StatusTrio.vtool.XXXXXX")"
+    xcrun vtool         -set-build-version macos 15.0 "$TOOLCHAIN_PLATFORM_VERSION"         -replace         -output "$VTMP_BINARY"         "$CONTENTS/MacOS/StatusTrio"
+    mv "$VTMP_BINARY" "$CONTENTS/MacOS/StatusTrio"
+    chmod +x "$CONTENTS/MacOS/StatusTrio"
+fi
+
 codesign --force --sign - "$APP_DIR"
 
 echo "Built $APP_DIR (bundle id: $BUNDLE_ID)"
