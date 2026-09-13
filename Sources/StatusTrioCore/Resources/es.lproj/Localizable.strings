@@ -20,11 +20,12 @@
 "settings.tab.about" = "Acerca de";
 "settings.menuBar.title" = "Icono de la barra de menús";
 "settings.about.version" = "Versión %@";
-"settings.about.description" = "Una app nativa de macOS que reúne batería, Wi-Fi y volumen en un icono compacto en la barra de menús.";
+"settings.about.description" = "Una app nativa de macOS que reúne Wi-Fi, batería y volumen en un icono compacto de la barra de menús. Inspirada en el icono combinado de la barra de estado del iPhone Duo, usa el volumen en lugar de los datos móviles en el Mac.";
 "settings.about.project" = "Proyecto";
 "settings.about.repository" = "Repositorio de GitHub";
 "settings.about.author" = "Autor";
 "settings.about.authorRole" = "Creador y responsable";
+"settings.about.website" = "Sitio web";
 "settings.about.copyright" = "© lingyired";
 "settings.battery.title" = "Visualización de la batería";
 "settings.battery.showPercentage" = "Mostrar porcentaje de batería";

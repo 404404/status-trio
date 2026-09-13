@@ -15,11 +15,12 @@
 "settings.tab.about" = "حول";
 "settings.menuBar.title" = "رمز شريط القوائم";
 "settings.about.version" = "الإصدار %@";
-"settings.about.description" = "تطبيق macOS أصلي يجمع البطارية وWi-Fi ومستوى الصوت في رمز مدمج واحد في شريط القوائم.";
+"settings.about.description" = "تطبيق macOS أصلي يجمع Wi-Fi والبطارية ومستوى الصوت في رمز مدمج واحد في شريط القوائم. مستوحى من رمز شريط الحالة المدمج في iPhone Duo، ويستخدم مستوى الصوت بدل بيانات الشبكة الخلوية على Mac.";
 "settings.about.project" = "المشروع";
 "settings.about.repository" = "مستودع GitHub";
 "settings.about.author" = "المؤلف";
 "settings.about.authorRole" = "المنشئ والمشرف";
+"settings.about.website" = "الموقع";
 "settings.about.copyright" = "© lingyired";
 "settings.battery.title" = "عرض البطارية";
 "settings.battery.showPercentage" = "إظهار نسبة البطارية";

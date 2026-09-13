@@ -6,6 +6,7 @@ enum AppMetadata {
     static let repositoryURL = URL(string: "https://github.com/lingyired/status-trio")!
     static let authorName = "lingyired"
     static let authorURL = URL(string: "https://github.com/lingyired")!
+    static let authorWebsiteURL = URL(string: "https://lingai.net/")!
 
     static var versionDisplayString: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"

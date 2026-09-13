@@ -20,11 +20,12 @@
 "settings.tab.about" = "About";
 "settings.menuBar.title" = "Menu Bar Icon";
 "settings.about.version" = "Version %@";
-"settings.about.description" = "A native macOS menu bar app that combines battery, Wi-Fi, and volume into one compact status icon.";
+"settings.about.description" = "A native macOS menu bar app that combines Wi-Fi, battery, and volume into one compact status icon. Inspired by the iPhone Duo combined status bar icon, with volume replacing cellular data on Mac.";
 "settings.about.project" = "Project";
 "settings.about.repository" = "GitHub Repository";
 "settings.about.author" = "Author";
 "settings.about.authorRole" = "Creator and maintainer";
+"settings.about.website" = "Website";
 "settings.about.copyright" = "© lingyired";
 "settings.battery.title" = "Battery Display";
 "settings.battery.showPercentage" = "Show battery percentage";

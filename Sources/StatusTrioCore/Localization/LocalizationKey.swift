@@ -38,6 +38,7 @@ enum LocalizationKey: String, CaseIterable, Hashable, Sendable {
     case settingsAboutRepository = "settings.about.repository"
     case settingsAboutAuthor = "settings.about.author"
     case settingsAboutAuthorRole = "settings.about.authorRole"
+    case settingsAboutWebsite = "settings.about.website"
     case settingsAboutCopyright = "settings.about.copyright"
     case settingsUpdatesTitle = "settings.updates.title"
     case settingsUpdatesAutomatic = "settings.updates.automatic"

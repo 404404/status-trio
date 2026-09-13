@@ -20,11 +20,12 @@
 "settings.tab.about" = "Über";
 "settings.menuBar.title" = "Menüleistensymbol";
 "settings.about.version" = "Version %@";
-"settings.about.description" = "Eine native macOS-Menüleisten-App, die Batterie, WLAN und Lautstärke in einem kompakten Statussymbol vereint.";
+"settings.about.description" = "Eine native macOS-Menüleisten-App, die WLAN, Batterie und Lautstärke in einem kompakten Statussymbol vereint. Inspiriert vom kombinierten Statusleisten-Symbol des iPhone Duo, verwendet sie auf dem Mac die Lautstärke statt Mobilfunkdaten.";
 "settings.about.project" = "Projekt";
 "settings.about.repository" = "GitHub-Repository";
 "settings.about.author" = "Autor";
 "settings.about.authorRole" = "Entwickler und Maintainer";
+"settings.about.website" = "Website";
 "settings.about.copyright" = "© lingyired";
 "settings.battery.title" = "Batterieanzeige";
 "settings.battery.showPercentage" = "Batterieprozentsatz anzeigen";

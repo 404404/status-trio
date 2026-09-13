@@ -1,50 +1,74 @@
 # Status Trio
 
-**Three system signals. One native macOS menu bar icon.**
+<p align="center">
+  <img src="Support/AppIcon.svg" width="112" alt="Status Trio app icon">
+</p>
 
-Status Trio is a native macOS menu bar app that combines battery, Wi-Fi, and volume into one compact three-in-one status icon. It is inspired by the iPhone Duo's compact multi-status icon direction, but adapted for the Mac by replacing cellular signal with volume.
+<p align="center"><strong>Three system signals. One native macOS menu bar icon.</strong></p>
+
+<p align="center">
+  <a href="README.zh-CN.md">简体中文</a>
+</p>
+
+Status Trio combines Wi-Fi, battery, and volume into one compact, configurable menu bar icon. It is inspired by the iPhone Duo's combined status bar icon for Wi-Fi, Battery, and Cellular Data, adapted for Mac with Volume instead of Cellular Data.
 
 > Status Trio is an independent project and is not affiliated with Apple.
 
-## Features
+## Highlights
 
-- One configurable 20–32 pt menu bar icon (default 28 pt) for battery, Wi-Fi, and volume.
-- Settings window to adjust the icon render size and language, applied live and persisted.
-- Battery percentage and charging bolt with independent visibility controls.
-- Configurable battery number/bolt size and optional arc status colors.
-- Charging state, estimated time to full, Low Power Mode, and a Battery Settings shortcut.
-- Wi-Fi signal strength, current network name, and common network states.
-- System output volume and mute state.
-- Optional launch at login, with a shortcut to Login Items when macOS asks for approval.
-- Left-click popover with current status details.
-- Native right-click menu with version and quit actions.
-- Event-driven updates with a low-frequency polling fallback.
-- Twelve languages with system-language following and an immediate in-app override.
+- **One combined status icon** — keeps battery, Wi-Fi, and volume in a single menu bar item.
+- **Configurable rendering** — choose an icon size from 20–32 pt, with 28 pt as the default.
+- **Detailed battery status** — percentage, charging bolt, estimated time to full, Low Power Mode, and a Battery Settings shortcut.
+- **Wi-Fi awareness** — signal strength, current network name, and common connection states.
+- **Volume at a glance** — output level and mute state, with controls available from the popover.
+- **macOS-native controls** — left-click for a status popover and right-click for the standard menu.
+- **Efficient updates** — event-driven monitoring with a low-frequency polling fallback.
+- **Twelve languages** — follow the system language or choose one manually; changes apply immediately.
+- **Launch at login** — optional startup with guidance when macOS requires approval.
+
+## Requirements
+
+- macOS 15 or later
+- Swift 6 toolchain (Xcode 16 or later)
+
+## Run from source
+
+```bash
+git clone https://github.com/lingyired/status-trio.git
+cd status-trio
+swift run StatusTrio
+```
+
+## Build a local app
+
+Build an ad-hoc-signed app bundle and launch it:
+
+```bash
+bash scripts/build-app.sh release
+```
+
+The bundle is created at `dist/StatusTrio.app`. To build without quitting or launching an existing instance, run:
+
+```bash
+bash scripts/build-app.sh release no-open
+```
+
+The ad-hoc-signed bundle is intended for local personal use. Gatekeeper may reject it if the bundle is transferred with quarantine metadata.
+
+## Usage
+
+- **Left-click** the menu bar icon to open the status popover.
+- **Right-click** it for the native menu, including version and quit actions.
+- Open **Settings** to change the icon size, battery display options, language, update checks, and launch-at-login behavior.
+- Enable the current Wi-Fi network name when prompted; macOS requests location access for this optional detail.
 
 ## Languages
 
-Status Trio follows the macOS preferred language by default and supports English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French, German, Italian, Brazilian Portuguese, Russian, and Arabic. Open Settings to choose a language manually; changes apply immediately without restarting the app.
+Status Trio follows the macOS preferred language by default and includes English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French, German, Italian, Brazilian Portuguese, Russian, and Arabic.
 
-## Status
+## Privacy
 
-Status Trio is implemented as a Swift Package. See Development and Build a local app bundle below for the current commands.
-
-## Specification
-
-- [Status Trio design specification](docs/superpowers/specs/2026-09-12-status-trio-design.md)
-
-## Technical baseline
-
-- Swift 6
-- SwiftUI + AppKit
-- macOS 15+
-- `LSUIElement` menu bar app
-- No App Sandbox or network permission. Location permission is optional and requested only when the user chooses to show the current Wi-Fi network name.
-
-## Reference design
-
-- [SVG source](status-menubar.svg)
-- [Data-driven demo](status-menubar-demo.html)
+Status Trio reads status through public macOS frameworks. It does not use App Sandbox or require a network entitlement, and it does not include telemetry or analytics. Location access is optional and requested only when you choose to display the current Wi-Fi network name.
 
 ## Development
 
@@ -54,44 +78,43 @@ Run the test suite:
 swift test
 ```
 
-An optional XCTest filter can be passed through the test helper:
+Run a focused XCTest filter through the helper:
 
 ```bash
 bash scripts/test.sh BatteryMonitorTests
 ```
 
-Run the app directly from the Swift package:
-
-```bash
-swift run StatusTrio
-```
-
-## Build a local app bundle
-
-Build an ad-hoc-signed local app bundle:
-
-```bash
-bash scripts/build-app.sh release
-```
-
-This creates `dist/StatusTrio.app` and opens it by default. In open mode, the script asks any existing instance with the same bundle identifier to quit and waits briefly before launching the freshly built bundle. Pass `no-open` as the second argument to only build without quitting or launching an app:
-
-```bash
-bash scripts/build-app.sh release no-open
-```
-
-To run a worktree build alongside the main app, use the worktree build helper:
+To build a worktree app alongside the main installation:
 
 ```bash
 bash scripts/build-worktree.sh release
 ```
 
-The helper derives a development bundle identifier and display name from the current branch, so a worktree app can run at the same time as the main app. You can still override either value explicitly:
+The helper derives a development bundle identifier and display name from the current branch. Both values can be overridden:
 
 ```bash
-BUNDLE_ID=com.lingsmbp.StatusTrio.dev.settings-redesign APP_NAME="Status Trio (Settings Redesign)" bash scripts/build-worktree.sh release
+BUNDLE_ID=com.lingsmbp.StatusTrio.dev.settings-redesign \
+APP_NAME="Status Trio (Settings Redesign)" \
+bash scripts/build-worktree.sh release
 ```
 
-The single-instance lock is scoped by bundle identifier, so differently identified builds can run at the same time. Main builds keep using `com.lingsmbp.StatusTrio` by default; no bundle identifier change is required before merging.
+The single-instance lock is scoped by bundle identifier, so differently identified builds can run at the same time.
 
-The ad-hoc-signed bundle is intended for local personal use. Gatekeeper may reject it if the bundle is transferred with quarantine metadata.
+## Technical baseline
+
+- Swift 6
+- SwiftUI + AppKit
+- macOS 15+
+- `LSUIElement` menu bar app
+- Sparkle for update checks
+
+## Documentation
+
+- [Status Trio design specification](docs/superpowers/specs/2026-09-12-status-trio-design.md)
+- [Menu bar icon SVG](status-menubar.svg)
+- [Data-driven icon demo](status-menubar-demo.html)
+
+## Author
+
+Created and maintained by [lingyired](https://github.com/lingyired).<br>
+Website: [https://lingai.net/](https://lingai.net/)

@@ -20,11 +20,12 @@
 "settings.tab.about" = "关于";
 "settings.menuBar.title" = "菜单栏图标";
 "settings.about.version" = "版本 %@";
-"settings.about.description" = "将电池、Wi-Fi 和音量整合为一个简洁菜单栏状态图标的原生 macOS 应用。";
+"settings.about.description" = "将 Wi-Fi、电池和音量整合为一个简洁菜单栏状态图标的原生 macOS 应用。灵感源自 iPhone Duo 的组合状态栏图标，并在 Mac 上以音量替代蜂窝网络。";
 "settings.about.project" = "项目";
 "settings.about.repository" = "GitHub 仓库";
 "settings.about.author" = "作者";
 "settings.about.authorRole" = "作者与维护者";
+"settings.about.website" = "作者主页";
 "settings.about.copyright" = "© lingyired";
 "settings.battery.title" = "电池显示";
 "settings.battery.showPercentage" = "显示电量数字";

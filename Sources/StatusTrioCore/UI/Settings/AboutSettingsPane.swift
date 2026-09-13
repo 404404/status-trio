@@ -49,6 +49,15 @@ struct AboutSettingsPane: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+
+                Link(destination: AppMetadata.authorWebsiteURL) {
+                    Label(
+                        localization.string(.settingsAboutWebsite),
+                        systemImage: "globe"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
 
             Text(

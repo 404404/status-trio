@@ -20,11 +20,12 @@
 "settings.tab.about" = "このアプリについて";
 "settings.menuBar.title" = "メニューバーアイコン";
 "settings.about.version" = "バージョン %@";
-"settings.about.description" = "バッテリー、Wi-Fi、音量をひとつのコンパクトなメニューバーアイコンにまとめるネイティブ macOS アプリです。";
+"settings.about.description" = "Wi-Fi、バッテリー、音量をひとつのコンパクトなメニューバーアイコンにまとめるネイティブ macOS アプリです。iPhone Duo の組み合わせステータスバーアイコンに着想を得て、Mac ではモバイル通信の代わりに音量を表示します。";
 "settings.about.project" = "プロジェクト";
 "settings.about.repository" = "GitHub リポジトリ";
 "settings.about.author" = "作者";
 "settings.about.authorRole" = "作者・メンテナー";
+"settings.about.website" = "ウェブサイト";
 "settings.about.copyright" = "© lingyired";
 "settings.battery.title" = "バッテリー表示";
 "settings.battery.showPercentage" = "バッテリー残量を表示";

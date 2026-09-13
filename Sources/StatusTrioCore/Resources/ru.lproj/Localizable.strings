@@ -20,11 +20,12 @@
 "settings.tab.about" = "О программе";
 "settings.menuBar.title" = "Значок в строке меню";
 "settings.about.version" = "Версия %@";
-"settings.about.description" = "Нативное приложение macOS, объединяющее батарею, Wi-Fi и громкость в одном компактном значке строки меню.";
+"settings.about.description" = "Нативное приложение macOS, объединяющее Wi-Fi, аккумулятор и громкость в одном компактном значке строки меню. Вдохновлено объединённым значком строки состояния iPhone Duo: на Mac громкость заменяет сотовые данные.";
 "settings.about.project" = "Проект";
 "settings.about.repository" = "Репозиторий GitHub";
 "settings.about.author" = "Автор";
 "settings.about.authorRole" = "Автор и сопровождающий";
+"settings.about.website" = "Веб-сайт";
 "settings.about.copyright" = "© lingyired";
 "settings.battery.title" = "Отображение батареи";
 "settings.battery.showPercentage" = "Показывать процент заряда";
