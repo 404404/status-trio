@@ -110,6 +110,7 @@ bash scripts/build-worktree.sh release
 
 ## 文档
 
+- [GitHub Actions 自动发布](docs/github-actions-release.md)
 - [Status Trio 设计规格](docs/superpowers/specs/2026-09-12-status-trio-design.md)
 - [菜单栏图标 SVG](status-menubar.svg)
 - [数据驱动图标演示](status-menubar-demo.html)

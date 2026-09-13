@@ -110,6 +110,7 @@ The single-instance lock is scoped by bundle identifier, so differently identifi
 
 ## Documentation
 
+- [Automated GitHub Actions releases](docs/github-actions-release.md)
 - [Status Trio design specification](docs/superpowers/specs/2026-09-12-status-trio-design.md)
 - [Menu bar icon SVG](status-menubar.svg)
 - [Data-driven icon demo](status-menubar-demo.html)

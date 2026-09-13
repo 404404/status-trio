@@ -1,0 +1,243 @@
+name: Build and Release macOS
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Marketing version, for example 1.2.0. Defaults to Support/Info.plist."
+        required: false
+        type: string
+      build:
+        description: "Numeric CFBundleVersion. Defaults to the GitHub run number for manual runs."
+        required: false
+        type: string
+      tag:
+        description: "Release tag. Defaults to vVERSION."
+        required: false
+        type: string
+      publish:
+        description: "Create a GitHub Release and publish appcast.xml."
+        required: true
+        default: false
+        type: boolean
+      release_notes:
+        description: "Optional release notes. One bullet per line."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: macos-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      RELEASE_REPO: ${{ vars.RELEASE_REPO }}
+      RELEASE_BRANCH: ${{ vars.RELEASE_BRANCH }}
+      PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Show toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Resolve release version
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+          BUILD_INPUT: ${{ inputs.build }}
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+
+          PLIST_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Support/Info.plist)"
+          PLIST_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' Support/Info.plist)"
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+            BUILD="${PLIST_BUILD}"
+
+            if [[ "${VERSION}" != "${PLIST_VERSION}" ]]; then
+              echo "::error::Tag ${TAG} does not match CFBundleShortVersionString ${PLIST_VERSION}."
+              exit 1
+            fi
+          else
+            VERSION="${VERSION_INPUT:-${PLIST_VERSION}}"
+            BUILD="${BUILD_INPUT:-${GITHUB_RUN_NUMBER}}"
+            TAG="${TAG_INPUT:-v${VERSION}}"
+          fi
+
+          if [[ ! "${VERSION}" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+            echo "::error::VERSION must contain dot-separated numbers."
+            exit 1
+          fi
+
+          if [[ ! "${BUILD}" =~ ^[0-9]+$ ]]; then
+            echo "::error::BUILD must contain only digits."
+            exit 1
+          fi
+
+          {
+            echo "VERSION=${VERSION}"
+            echo "BUILD=${BUILD}"
+            echo "TAG=${TAG}"
+          } >> "${GITHUB_ENV}"
+
+          echo "Resolved release ${TAG}: ${VERSION} (${BUILD})"
+
+      - name: Validate Sparkle signing secret
+        if: ${{ env.PUBLISH == 'true' }}
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SPARKLE_PRIVATE_KEY}" ]]; then
+            echo "::error::Set the SPARKLE_PRIVATE_KEY repository secret before publishing updates."
+            exit 1
+          fi
+
+      - name: Configure Developer ID signing
+        env:
+          DEVELOPER_ID_CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${PUBLISH}" != "true" || -z "${DEVELOPER_ID_CERTIFICATE_P12}" ]]; then
+            echo "Developer ID signing is not configured; using Ad-hoc signing."
+            exit 0
+          fi
+
+          if [[ -z "${CERTIFICATE_PASSWORD}" ]]; then
+            echo "::error::DEVELOPER_ID_CERTIFICATE_PASSWORD is required when a certificate is provided."
+            exit 1
+          fi
+
+          CERT_PATH="${RUNNER_TEMP}/developer-id.p12"
+          KEYCHAIN_PATH="${RUNNER_TEMP}/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+
+          printf '%s' "${DEVELOPER_ID_CERTIFICATE_P12}" | base64 -D > "${CERT_PATH}"
+
+          security create-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN_PATH}"
+          security set-keychain-settings -lut 21600 "${KEYCHAIN_PATH}"
+          security unlock-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN_PATH}"
+          security import "${CERT_PATH}" \
+            -P "${CERTIFICATE_PASSWORD}" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "${KEYCHAIN_PATH}"
+          rm -f "${CERT_PATH}"
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s \
+            -k "${KEYCHAIN_PASSWORD}" \
+            "${KEYCHAIN_PATH}" >/dev/null
+          security list-keychains -d user -s "${KEYCHAIN_PATH}" \
+            $(security list-keychains -d user | tr -d '"')
+
+          IDENTITY="$(
+            security find-identity -v -p codesigning "${KEYCHAIN_PATH}" \
+              | sed -n 's/.*"\(Developer ID Application: .*\)"/\1/p' \
+              | head -n 1
+          )"
+
+          if [[ -z "${IDENTITY}" ]]; then
+            echo "::error::No Developer ID Application identity was found in the imported certificate."
+            exit 1
+          fi
+
+          {
+            echo "CODE_SIGN_IDENTITY=${IDENTITY}"
+            echo "KEYCHAIN_PATH=${KEYCHAIN_PATH}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Configure Apple notarization
+        env:
+          NOTARY_API_KEY_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
+          NOTARY_API_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_API_ISSUER_ID }}
+          NOTARY_API_PRIVATE_KEY: ${{ secrets.APPSTORE_CONNECT_API_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${PUBLISH}" != "true" || -z "${NOTARY_API_PRIVATE_KEY}" ]]; then
+            echo "Apple notarization is not configured."
+            exit 0
+          fi
+
+          if [[ -z "${NOTARY_API_KEY_ID}" || -z "${NOTARY_API_ISSUER_ID}" ]]; then
+            echo "::error::App Store Connect API key ID and issuer ID are required for notarization."
+            exit 1
+          fi
+
+          KEY_PATH="${RUNNER_TEMP}/AuthKey_${NOTARY_API_KEY_ID}.p8"
+          printf '%s' "${NOTARY_API_PRIVATE_KEY}" > "${KEY_PATH}"
+
+          xcrun notarytool store-credentials "status-trio-notary" \
+            --key "${KEY_PATH}" \
+            --key-id "${NOTARY_API_KEY_ID}" \
+            --issuer "${NOTARY_API_ISSUER_ID}"
+          rm -f "${KEY_PATH}"
+
+          echo "NOTARY_PROFILE=status-trio-notary" >> "${GITHUB_ENV}"
+
+      - name: Prepare release notes
+        if: ${{ env.PUBLISH == 'true' }}
+        env:
+          RELEASE_NOTES_INPUT: ${{ inputs.release_notes }}
+        run: |
+          set -euo pipefail
+          NOTES_PATH="${RUNNER_TEMP}/release-notes.md"
+
+          if [[ -n "${RELEASE_NOTES_INPUT}" ]]; then
+            printf '%s\n' "${RELEASE_NOTES_INPUT}" > "${NOTES_PATH}"
+          else
+            PREVIOUS_TAG="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
+            if [[ -n "${PREVIOUS_TAG}" ]] && git rev-parse "${PREVIOUS_TAG}" >/dev/null 2>&1; then
+              git log --pretty=format:'- %s' "${PREVIOUS_TAG}..HEAD" > "${NOTES_PATH}"
+            else
+              git log --pretty=format:'- %s' -20 > "${NOTES_PATH}"
+            fi
+            printf '\n' >> "${NOTES_PATH}"
+          fi
+
+          echo "RELEASE_NOTES_FILE=${NOTES_PATH}" >> "${GITHUB_ENV}"
+
+      - name: Run tests
+        run: swift test
+
+      - name: Build, sign, notarize, and publish
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: bash scripts/release.sh
+
+      - name: Upload release artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: StatusTrio-${{ github.run_number }}
+          path: |
+            dist/*.dmg
+            dist/*.dmg.sha256
+            dist/release.env
+          if-no-files-found: ignore
+
+      - name: Clean up signing keychain
+        if: always() && env.KEYCHAIN_PATH != ''
+        run: security delete-keychain "${KEYCHAIN_PATH}" || true

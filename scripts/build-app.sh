@@ -6,6 +6,10 @@ CONFIGURATION="${1:-release}"
 OPEN_APP="${2:-open}"
 BUNDLE_ID="${BUNDLE_ID:-com.lingsmbp.StatusTrio}"
 APP_NAME="${APP_NAME:-Status Trio}"
+APP_VERSION="${APP_VERSION:-}"
+BUILD_NUMBER="${BUILD_NUMBER:-}"
+SU_FEED_URL="${SU_FEED_URL:-}"
+UNIVERSAL_BUILD="${UNIVERSAL_BUILD:-0}"
 
 case "$OPEN_APP" in
     open|no-open) ;;
@@ -25,10 +29,38 @@ if [[ -z "$APP_NAME" ]]; then
     exit 2
 fi
 
+if [[ -n "$APP_VERSION" && ! "$APP_VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+    echo "Error: APP_VERSION must contain dot-separated numbers, for example 1.2.0." >&2
+    exit 2
+fi
+
+if [[ -n "$BUILD_NUMBER" && ! "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+    echo "Error: BUILD_NUMBER must contain only digits." >&2
+    exit 2
+fi
+
+if [[ -n "$SU_FEED_URL" && "$SU_FEED_URL" != https://* ]]; then
+    echo "Error: SU_FEED_URL must use HTTPS." >&2
+    exit 2
+fi
+
+case "$UNIVERSAL_BUILD" in
+    0|1) ;;
+    *)
+        echo "Error: UNIVERSAL_BUILD must be 0 or 1." >&2
+        exit 2
+        ;;
+esac
+
 cd "$ROOT"
 
-swift build -c "$CONFIGURATION"
-BIN_PATH="$(swift build -c "$CONFIGURATION" --show-bin-path)"
+SWIFT_BUILD_ARGS=(build -c "$CONFIGURATION")
+if [[ "$UNIVERSAL_BUILD" == "1" ]]; then
+    SWIFT_BUILD_ARGS+=(--arch arm64 --arch x86_64)
+fi
+
+swift "${SWIFT_BUILD_ARGS[@]}"
+BIN_PATH="$(swift "${SWIFT_BUILD_ARGS[@]}" --show-bin-path)"
 APP_DIR="$ROOT/dist/StatusTrio.app"
 CONTENTS="$APP_DIR/Contents"
 ICON_SOURCE="$ROOT/Support/AppIcon.svg"
@@ -83,6 +115,18 @@ cp "$ROOT/Support/Info.plist" "$CONTENTS/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$CONTENTS/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" "$CONTENTS/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME" "$CONTENTS/Info.plist"
+
+if [[ -n "$APP_VERSION" ]]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$CONTENTS/Info.plist"
+fi
+
+if [[ -n "$BUILD_NUMBER" ]]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$CONTENTS/Info.plist"
+fi
+
+if [[ -n "$SU_FEED_URL" ]]; then
+    /usr/libexec/PlistBuddy -c "Set :SUFeedURL $SU_FEED_URL" "$CONTENTS/Info.plist"
+fi
 INFO_PLIST_COUNT="$(find "$ROOT/Sources/StatusTrioCore/Resources" -name 'InfoPlist.strings' -type f | wc -l | tr -d ' ')"
 if [[ "$INFO_PLIST_COUNT" -ne 12 ]]; then
     echo "Error: expected 12 localized InfoPlist.strings files, found $INFO_PLIST_COUNT." >&2
@@ -112,8 +156,18 @@ if [[ "${SDK_VERSION%%.*}" -ge 26 ]]; then
     chmod +x "$CONTENTS/MacOS/StatusTrio"
 fi
 
-codesign --force --deep --sign - "$CONTENTS/Frameworks/Sparkle.framework"
-codesign --force --sign - "$APP_DIR"
+SIGNING_IDENTITY="${CODE_SIGN_IDENTITY:--}"
+SIGNING_ARGS=(--force --deep --sign "$SIGNING_IDENTITY")
+if [[ "$SIGNING_IDENTITY" != "-" ]]; then
+    SIGNING_ARGS+=(--options runtime --timestamp)
+    if [[ -n "${KEYCHAIN_PATH:-}" ]]; then
+        SIGNING_ARGS+=(--keychain "$KEYCHAIN_PATH")
+    fi
+fi
+
+codesign "${SIGNING_ARGS[@]}" "$CONTENTS/Frameworks/Sparkle.framework"
+codesign "${SIGNING_ARGS[@]}" "$APP_DIR"
+codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 
 echo "Built $APP_DIR (bundle id: $BUNDLE_ID)"
 
