@@ -219,7 +219,20 @@ jobs:
           echo "RELEASE_NOTES_FILE=${NOTES_PATH}" >> "${GITHUB_ENV}"
 
       - name: Run tests
-        run: swift test
+        run: |
+          set +e
+          swift test
+          TEST_EXIT_CODE=$?
+          set -e
+
+          if [[ "${TEST_EXIT_CODE}" -ne 0 ]]; then
+            echo "SwiftPM resource bundle diagnostics:"
+            find .build -name 'StatusTrio_StatusTrioCore.bundle' -type d -print
+            find .build -name 'StatusTrio_StatusTrioCore.bundle' -type d -exec find {} -maxdepth 4 -print \;
+            find .build -name 'Localizable.strings' -print | head -n 50
+          fi
+
+          exit "${TEST_EXIT_CODE}"
 
       - name: Build, sign, notarize, and publish
         env:
