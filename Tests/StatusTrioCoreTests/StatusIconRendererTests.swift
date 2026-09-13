@@ -234,6 +234,18 @@ final class StatusIconRendererTests: XCTestCase {
         XCTAssertGreaterThan(bitmap.pixelsHigh, 0)
     }
 
+    func testWiFiStatusImageUsesRequestedSizeAndTemplateRendering() {
+        let image = StatusIconRenderer.wifiImage(
+            wifi: WiFiStatus(state: .connected, rssi: -55),
+            size: 22
+        )
+
+        XCTAssertEqual(image.size.width, 22, accuracy: 0.01)
+        XCTAssertEqual(image.size.height, 22, accuracy: 0.01)
+        XCTAssertTrue(image.isTemplate)
+        XCTAssertNotNil(image.tiffRepresentation)
+    }
+
     func testConnectedZeroBarsMatchesFullMutedSignalAndDiffersFromHigherBars() throws {
         let zeroBars = StatusSnapshot(
             battery: .placeholder,

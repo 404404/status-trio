@@ -2,6 +2,13 @@ import AppKit
 import CoreGraphics
 
 enum StatusIconRenderer {
+    private static let wifiCanvasBounds = CGRect(
+        x: 38.6,
+        y: 43.25,
+        width: 42.2,
+        height: 42.2
+    )
+
     static func image(
         snapshot: StatusSnapshot,
         size: CGFloat,
@@ -19,6 +26,32 @@ enum StatusIconRenderer {
             draw(snapshot: snapshot, in: context, size: size, foreground: foreground)
         }
 
+        return image
+    }
+
+    static func wifiImage(wifi: WiFiStatus, size: CGFloat) -> NSImage {
+        let image = NSImage(size: NSSize(width: size, height: size))
+        image.lockFocus()
+        defer { image.unlockFocus() }
+
+        guard let context = NSGraphicsContext.current?.cgContext else { return image }
+
+        context.saveGState()
+        defer { context.restoreGState() }
+
+        let scale = size / wifiCanvasBounds.width
+        context.translateBy(x: 0, y: size)
+        context.scaleBy(x: scale, y: -scale)
+        context.translateBy(x: -wifiCanvasBounds.minX, y: -wifiCanvasBounds.minY)
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+
+        drawWiFi(
+            wifi,
+            in: context,
+            foreground: CGColor(gray: 1, alpha: 1)
+        )
+        image.isTemplate = true
         return image
     }
 

@@ -8,10 +8,7 @@ struct WiFiStatusView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "wifi")
-                .frame(width: 24)
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
+            WiFiStatusIcon(wifi: wifi)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Wi-Fi")
@@ -21,9 +18,6 @@ struct WiFiStatusView: View {
             }
 
             Spacer()
-
-            Text(StatusPresentation.wifiValue(wifi))
-                .font(.body.monospacedDigit().weight(.semibold))
 
             Button(
                 StatusPresentation.openWiFiSettingsAction,
