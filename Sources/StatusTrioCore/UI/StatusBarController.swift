@@ -190,6 +190,10 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
                 of: button,
                 preferredEdge: .minY
             )
+            // Status-item clicks come from the system menu bar process, so the
+            // modern activate() can be ignored by the user-activation policy.
+            NSApp.activate(ignoringOtherApps: true)
+            popover.contentViewController?.view.window?.makeKey()
             installPopoverDismissMonitor()
         }
     }
