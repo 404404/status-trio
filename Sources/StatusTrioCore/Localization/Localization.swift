@@ -137,9 +137,16 @@ final class Localization: ObservableObject {
     }
 
     static func resourceBundle(for language: AppLanguage) -> Bundle? {
-        Bundle.module
-            .path(forResource: language.rawValue, ofType: "lproj")
-            .flatMap(Bundle.init(path:))
+        let candidates = [language.rawValue, language.rawValue.lowercased()]
+
+        for candidate in candidates {
+            if let path = Bundle.module.path(forResource: candidate, ofType: "lproj"),
+               let bundle = Bundle(path: path) {
+                return bundle
+            }
+        }
+
+        return nil
     }
 
     private func bundle(for language: AppLanguage) -> Bundle? {
