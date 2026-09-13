@@ -206,7 +206,7 @@ enum StatusPresentation {
         return localization.format(
             .commonLabelValue,
             localization.string(.wifiTitle),
-            wifiSubtitle(wifi, localization: localization)
+            value
         )
     }
 
