@@ -11,6 +11,8 @@ struct BatteryReading: Equatable {
     var currentCapacity: Int
     var maxCapacity: Int
     var isCharging: Bool
+    var isCharged: Bool = false
+    var timeToFullChargeMinutes: Int? = nil
     var isConnectedToPower: Bool
     var isPresent: Bool
 }
@@ -62,10 +64,15 @@ final class IOPSBatteryReader: BatteryReadingProviding {
             let maximum = integerValue(description[kIOPSMaxCapacityKey])
         else { return nil }
 
+        let rawTimeToFullCharge = integerValue(description[kIOPSTimeToFullChargeKey])
+        let timeToFullCharge = rawTimeToFullCharge.flatMap { $0 > 0 ? $0 : nil }
+
         return BatteryReading(
             currentCapacity: current,
             maxCapacity: maximum,
             isCharging: description[kIOPSIsChargingKey] as? Bool ?? false,
+            isCharged: description[kIOPSIsChargedKey] as? Bool ?? false,
+            timeToFullChargeMinutes: timeToFullCharge,
             isConnectedToPower: description[kIOPSPowerSourceStateKey] as? String == kIOPSACPowerValue,
             isPresent: description[kIOPSIsPresentKey] as? Bool ?? true
         )
@@ -192,6 +199,10 @@ final class BatteryMonitor: BatteryMonitoring {
                 rawPercentage: percentage,
                 isPresent: true,
                 isCharging: reading.isCharging,
+                isCharged: reading.isCharged,
+                timeToFullChargeMinutes: reading.isCharging
+                    ? reading.timeToFullChargeMinutes
+                    : nil,
                 isLowPowerMode: lowPowerModeProvider(),
                 isConnectedToPower: reading.isConnectedToPower
             )
@@ -200,6 +211,8 @@ final class BatteryMonitor: BatteryMonitoring {
                 rawPercentage: nil,
                 isPresent: false,
                 isCharging: false,
+                isCharged: false,
+                timeToFullChargeMinutes: nil,
                 isLowPowerMode: lowPowerModeProvider(),
                 isConnectedToPower: false
             )

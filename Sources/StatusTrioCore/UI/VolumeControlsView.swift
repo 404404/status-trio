@@ -13,19 +13,29 @@ struct VolumeControlsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("系统音量")
+            HStack(spacing: 10) {
+                Image(systemName: "speaker.wave.2.fill")
+                    .frame(width: 24)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+
+                Text(StatusPresentation.volumeTitle(volume))
                     .font(.headline.weight(.semibold))
+                    .monospacedDigit()
 
                 Spacer()
 
                 Button(
-                    "声音设置…",
+                    StatusPresentation.openSoundSettingsAction,
                     systemImage: "gearshape",
                     action: onOpenSoundSettings
                 )
-                .buttonStyle(.link)
-                .controlSize(.small)
+                .labelStyle(.iconOnly)
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help(StatusPresentation.openSoundSettingsAction)
+                .accessibilityLabel(StatusPresentation.openSoundSettingsAction)
+                .frame(width: 24, height: 24)
             }
 
             HStack(spacing: 10) {
@@ -54,17 +64,19 @@ struct VolumeControlsView: View {
                 Image(systemName: "speaker.wave.3.fill")
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
-
-                Text(percentageText)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: 38, alignment: .trailing)
             }
 
             Divider()
 
-            Text("输出")
-                .font(.headline.weight(.semibold))
+            HStack(spacing: 10) {
+                Image(systemName: "hifispeaker.fill")
+                    .frame(width: 24)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+
+                Text("输出")
+                    .font(.headline.weight(.semibold))
+            }
 
             OutputDeviceList(
                 devices: volume.outputDevices,

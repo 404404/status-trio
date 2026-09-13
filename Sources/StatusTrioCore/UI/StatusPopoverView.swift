@@ -5,6 +5,8 @@ enum StatusPresentation {
     static let requestWiFiNameAction = "允许定位以显示 Wi-Fi 名称"
     static let openLocationSettingsAction = "去设置中允许定位"
     static let openWiFiSettingsAction = "打开 Wi-Fi 设置"
+    static let openBatterySettingsAction = "打开电源设置"
+    static let openSoundSettingsAction = "打开声音设置"
     static let statusItemAccessibilityLabel = "Status Trio"
 
     static func statusItemAccessibilityValue(_ snapshot: StatusSnapshot) -> String {
@@ -22,9 +24,33 @@ enum StatusPresentation {
         return "\(batterySummary)，\(wifiSummary)，音量 \(volumeValue(snapshot.volume))"
     }
 
+    static func batteryTitle(_ battery: BatteryStatus) -> String {
+        "电池 · \(battery.percentage)%"
+    }
+
+    static func batteryTimeToFullText(minutes: Int?) -> String {
+        guard let minutes, minutes > 0 else {
+            return "正在计算充满时间"
+        }
+
+        let hours = minutes / 60
+        let remainingMinutes = minutes % 60
+
+        if hours == 0 {
+            return "预计 \(remainingMinutes) 分钟充满"
+        }
+        if remainingMinutes == 0 {
+            return "预计 \(hours) 小时充满"
+        }
+        return "预计 \(hours) 小时 \(remainingMinutes) 分钟充满"
+    }
+
     static func batterySubtitle(_ battery: BatteryStatus) -> String {
         if !battery.isPresent { return "无电池设备" }
-        if battery.isCharging { return "正在充电" }
+        if battery.isCharged { return "已充满" }
+        if battery.isCharging {
+            return batteryTimeToFullText(minutes: battery.timeToFullChargeMinutes)
+        }
         if battery.isLowPowerMode { return "低电量模式" }
         if battery.isConnectedToPower { return "已连接电源" }
         return "电池供电"
@@ -101,6 +127,14 @@ enum StatusPresentation {
         }
     }
 
+    static func volumeTitle(_ volume: VolumeStatus) -> String {
+        guard let scalar = volume.scalar, scalar.isFinite else {
+            return "音量 · —"
+        }
+        let percentage = Int((min(1, max(0, scalar)) * 100).rounded())
+        return "音量 · \(percentage)%"
+    }
+
     static func volumeValue(_ volume: VolumeStatus) -> String {
         guard let scalar = volume.scalar, scalar.isFinite else { return "—" }
         let clampedScalar = min(1, max(0, scalar))
@@ -120,6 +154,7 @@ enum StatusPresentation {
 struct StatusPopoverView: View {
     @ObservedObject var store: SystemStatusStore
     let requestWiFiNameAccess: () -> Void
+    let openBatterySettings: () -> Void
     let openWiFiSettings: () -> Void
     let openLocationSettings: () -> Void
     let openSettings: () -> Void
@@ -128,22 +163,20 @@ struct StatusPopoverView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            statusRow(
-                icon: "battery.100",
-                title: "电池",
-                subtitle: StatusPresentation.batterySubtitle(store.snapshot.battery),
-                value: "\(store.snapshot.battery.percentage)%"
+            BatteryStatusView(
+                battery: store.popupSnapshot.battery,
+                onOpenBatterySettings: openBatterySettings
             )
             Divider()
             WiFiStatusView(
-                wifi: store.snapshot.wifi,
+                wifi: store.popupSnapshot.wifi,
                 onRequestNameAccess: requestWiFiNameAccess,
                 onOpenWiFiSettings: openWiFiSettings,
                 onOpenLocationSettings: openLocationSettings
             )
             Divider()
             VolumeControlsView(
-                volume: store.snapshot.volume,
+                volume: store.popupSnapshot.volume,
                 isEnabled: store.isVolumeControlAvailable,
                 onVolumeChange: store.setVolume,
                 onToggleMute: store.toggleMute,
@@ -168,28 +201,4 @@ struct StatusPopoverView: View {
         .frame(width: 300)
     }
 
-    private func statusRow(
-        icon: String,
-        title: String,
-        subtitle: String,
-        value: String
-    ) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .frame(width: 24)
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            Spacer()
-            Text(value)
-                .font(.body.monospacedDigit().weight(.semibold))
-        }
-    }
 }

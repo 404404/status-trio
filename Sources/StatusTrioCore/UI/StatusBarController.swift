@@ -4,6 +4,9 @@ import SwiftUI
 
 @MainActor
 final class StatusBarController: NSObject {
+    static let iconSnapshotDebounceInterval: TimeInterval = 0.5
+    static let iconFallbackRefreshInterval: TimeInterval = 5
+
     enum ClickKind: Equatable {
         case left
         case right
@@ -38,11 +41,26 @@ final class StatusBarController: NSObject {
         observeAppearanceChanges()
         scheduleInitialRender()
 
-        cancellable = store.$snapshot
+        let snapshotUpdates = store.$snapshot
             .removeDuplicates()
             .dropFirst()
-            .sink { [weak self] snapshot in
-                self?.render(snapshot: snapshot)
+            .debounce(
+                for: .seconds(Self.iconSnapshotDebounceInterval),
+                scheduler: RunLoop.main
+            )
+            .map { _ in () }
+
+        let periodicUpdates = Timer.publish(
+            every: Self.iconFallbackRefreshInterval,
+            on: .main,
+            in: .common
+        )
+        .autoconnect()
+        .map { _ in () }
+
+        cancellable = Publishers.Merge(snapshotUpdates, periodicUpdates)
+            .sink { [weak self] in
+                self?.renderLatestSnapshot()
             }
 
         iconSizeCancellable = settings.$iconSize
@@ -147,6 +165,7 @@ final class StatusBarController: NSObject {
             rootView: StatusPopoverView(
                 store: store,
                 requestWiFiNameAccess: handleRequestWiFiNameAccess,
+                openBatterySettings: handleOpenBatterySettings,
                 openWiFiSettings: handleOpenWiFiSettings,
                 openLocationSettings: handleOpenLocationSettings,
                 openSettings: handleOpenSettings,
@@ -163,6 +182,7 @@ final class StatusBarController: NSObject {
         if popover.isShown {
             popover.performClose(nil)
         } else {
+            store.refreshForPopoverOpening()
             popover.show(
                 relativeTo: button.bounds,
                 of: button,
@@ -223,6 +243,11 @@ final class StatusBarController: NSObject {
         store.requestWiFiNameAccess()
     }
 
+    @objc private func handleOpenBatterySettings() {
+        popover.performClose(nil)
+        Self.openSystemSettings(Self.batterySettingsURLs)
+    }
+
     @objc private func handleOpenWiFiSettings() {
         popover.performClose(nil)
         Self.openSystemSettings(Self.wifiSettingsURLs)
@@ -237,6 +262,12 @@ final class StatusBarController: NSObject {
         popover.performClose(nil)
         Self.openSystemSoundSettings()
     }
+
+    static let batterySettingsURLs = [
+        "x-apple.systempreferences:com.apple.Battery-Settings.extension",
+        "x-apple.systempreferences:com.apple.preference.battery"
+    ]
+    .compactMap(URL.init(string:))
 
     static let wifiSettingsURLs = [
         "x-apple.systempreferences:com.apple.Network-Settings.extension",

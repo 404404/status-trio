@@ -2,12 +2,14 @@ import XCTest
 @testable import StatusTrioCore
 
 final class StatusPresentationTests: XCTestCase {
-    func testBatterySubtitlePriority() {
+    func testBatteryTitleAndSubtitlePriority() {
+        XCTAssertEqual(StatusPresentation.batteryTitle(makeBattery(percentage: 68)), "电池 · 68%")
         XCTAssertEqual(
             StatusPresentation.batterySubtitle(
                 makeBattery(
                     isPresent: false,
                     isCharging: true,
+                    isCharged: true,
                     isLowPowerMode: true,
                     isConnectedToPower: true
                 )
@@ -15,21 +17,65 @@ final class StatusPresentationTests: XCTestCase {
             "无电池设备"
         )
         XCTAssertEqual(
-            StatusPresentation.batterySubtitle(makeBattery(isCharging: true, isLowPowerMode: true, isConnectedToPower: true)),
-            "正在充电"
+            StatusPresentation.batterySubtitle(
+                makeBattery(
+                    isCharging: true,
+                    isCharged: true,
+                    isLowPowerMode: true,
+                    isConnectedToPower: true
+                )
+            ),
+            "已充满"
         )
         XCTAssertEqual(
-            StatusPresentation.batterySubtitle(makeBattery(isLowPowerMode: true, isConnectedToPower: true)),
+            StatusPresentation.batterySubtitle(
+                makeBattery(
+                    isCharging: true,
+                    isLowPowerMode: true,
+                    isConnectedToPower: true,
+                    timeToFullChargeMinutes: 85
+                )
+            ),
+            "预计 1 小时 25 分钟充满"
+        )
+        XCTAssertEqual(
+            StatusPresentation.batterySubtitle(
+                makeBattery(isCharging: true, isConnectedToPower: true)
+            ),
+            "正在计算充满时间"
+        )
+        XCTAssertEqual(
+            StatusPresentation.batterySubtitle(
+                makeBattery(isLowPowerMode: true, isConnectedToPower: true)
+            ),
             "低电量模式"
         )
         XCTAssertEqual(
             StatusPresentation.batterySubtitle(makeBattery(isConnectedToPower: true)),
             "已连接电源"
         )
-        XCTAssertEqual(
-            StatusPresentation.batterySubtitle(makeBattery()),
-            "电池供电"
-        )
+        XCTAssertEqual(StatusPresentation.batterySubtitle(makeBattery()), "电池供电")
+    }
+
+    func testBatteryTimeToFullFormatting() {
+        let cases: [(Int?, String)] = [
+            (1, "预计 1 分钟充满"),
+            (59, "预计 59 分钟充满"),
+            (60, "预计 1 小时充满"),
+            (85, "预计 1 小时 25 分钟充满"),
+            (120, "预计 2 小时充满"),
+            (nil, "正在计算充满时间"),
+            (0, "正在计算充满时间"),
+            (-1, "正在计算充满时间")
+        ]
+
+        for (minutes, expected) in cases {
+            XCTAssertEqual(
+                StatusPresentation.batteryTimeToFullText(minutes: minutes),
+                expected,
+                "minutes: \(String(describing: minutes))"
+            )
+        }
     }
 
     func testWiFiValueAndSubtitleForEveryState() {
@@ -63,6 +109,8 @@ final class StatusPresentationTests: XCTestCase {
         XCTAssertEqual(StatusPresentation.requestWiFiNameAction, "允许定位以显示 Wi-Fi 名称")
         XCTAssertEqual(StatusPresentation.openLocationSettingsAction, "去设置中允许定位")
         XCTAssertEqual(StatusPresentation.openWiFiSettingsAction, "打开 Wi-Fi 设置")
+        XCTAssertEqual(StatusPresentation.openBatterySettingsAction, "打开电源设置")
+        XCTAssertEqual(StatusPresentation.openSoundSettingsAction, "打开声音设置")
     }
 
     func testWiFiSubtitlePrefersSSID() {
@@ -84,7 +132,8 @@ final class StatusPresentationTests: XCTestCase {
             battery: makeBattery(
                 isCharging: true,
                 isConnectedToPower: true,
-                percentage: 73
+                percentage: 73,
+                timeToFullChargeMinutes: 85
             ),
             wifi: WiFiStatus(state: .connected, rssi: -55),
             volume: VolumeStatus(
@@ -97,7 +146,7 @@ final class StatusPresentationTests: XCTestCase {
         XCTAssertEqual(StatusPresentation.statusItemAccessibilityLabel, "Status Trio")
         XCTAssertEqual(
             StatusPresentation.statusItemAccessibilityValue(snapshot),
-            "电池 73%（正在充电），Wi-Fi 3 格，音量 50% · 2 格"
+            "电池 73%（预计 1 小时 25 分钟充满），Wi-Fi 3 格，音量 50% · 2 格"
         )
     }
 
@@ -120,6 +169,27 @@ final class StatusPresentationTests: XCTestCase {
         XCTAssertEqual(
             StatusPresentation.statusItemAccessibilityValue(snapshot),
             "电池 73%，Wi-Fi Office，3 格，音量 50% · 2 格"
+        )
+    }
+
+    func testVolumeTitleUsesClampedPercentage() {
+        XCTAssertEqual(
+            StatusPresentation.volumeTitle(
+                VolumeStatus(scalar: 0.5, isMuted: false, deviceName: "Speaker")
+            ),
+            "音量 · 50%"
+        )
+        XCTAssertEqual(
+            StatusPresentation.volumeTitle(
+                VolumeStatus(scalar: 0.62, isMuted: true, deviceName: "Speaker")
+            ),
+            "音量 · 62%"
+        )
+        XCTAssertEqual(
+            StatusPresentation.volumeTitle(
+                VolumeStatus(scalar: nil, isMuted: false, deviceName: nil)
+            ),
+            "音量 · —"
         )
     }
 
@@ -220,14 +290,18 @@ final class StatusPresentationTests: XCTestCase {
     private func makeBattery(
         isPresent: Bool = true,
         isCharging: Bool = false,
+        isCharged: Bool = false,
         isLowPowerMode: Bool = false,
         isConnectedToPower: Bool = false,
-        percentage: Int = 100
+        percentage: Int = 100,
+        timeToFullChargeMinutes: Int? = nil
     ) -> BatteryStatus {
         BatteryStatus(
             rawPercentage: percentage,
             isPresent: isPresent,
             isCharging: isCharging,
+            isCharged: isCharged,
+            timeToFullChargeMinutes: timeToFullChargeMinutes,
             isLowPowerMode: isLowPowerMode,
             isConnectedToPower: isConnectedToPower
         )

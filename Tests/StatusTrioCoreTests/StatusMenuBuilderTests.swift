@@ -47,6 +47,11 @@ final class StatusMenuBuilderTests: XCTestCase {
         @objc func openSettings() {}
     }
 
+    func testStatusBarUpdateCadence() {
+        XCTAssertEqual(StatusBarController.iconSnapshotDebounceInterval, 0.5)
+        XCTAssertEqual(StatusBarController.iconFallbackRefreshInterval, 5)
+    }
+
     func testClickClassification() {
         XCTAssertEqual(StatusBarController.clickKind(eventType: .leftMouseUp, modifiers: []), .left)
         XCTAssertEqual(StatusBarController.clickKind(eventType: .rightMouseUp, modifiers: []), .right)
@@ -68,6 +73,13 @@ final class StatusMenuBuilderTests: XCTestCase {
             [
                 "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_LocationServices",
                 "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices"
+            ]
+        )
+        XCTAssertEqual(
+            StatusBarController.batterySettingsURLs.map(\.absoluteString),
+            [
+                "x-apple.systempreferences:com.apple.Battery-Settings.extension",
+                "x-apple.systempreferences:com.apple.preference.battery"
             ]
         )
     }
