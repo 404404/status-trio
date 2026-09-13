@@ -13,7 +13,12 @@ struct VolumeControlsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
+            HStack(spacing: 10) {
+                Image(systemName: "speaker.wave.2.fill")
+                    .frame(width: 24)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+
                 Text(StatusPresentation.volumeTitle(volume))
                     .font(.headline.weight(.semibold))
                     .monospacedDigit()
@@ -63,8 +68,15 @@ struct VolumeControlsView: View {
 
             Divider()
 
-            Text("输出")
-                .font(.headline.weight(.semibold))
+            HStack(spacing: 10) {
+                Image(systemName: "hifispeaker.fill")
+                    .frame(width: 24)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+
+                Text("输出")
+                    .font(.headline.weight(.semibold))
+            }
 
             OutputDeviceList(
                 devices: volume.outputDevices,
