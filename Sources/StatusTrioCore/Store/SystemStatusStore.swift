@@ -9,6 +9,7 @@ final class SystemStatusStore: ObservableObject {
     private let batteryMonitor: any BatteryMonitoring
     private let wifiMonitor: any WiFiMonitoring
     private let volumeMonitor: any VolumeMonitoring
+    private let volumeController: (any VolumeControlling)?
     private let refreshInterval: Duration
     private let sleep: @Sendable (Duration) async throws -> Void
     private let wakeNotificationCenter: NotificationCenter
@@ -33,6 +34,7 @@ final class SystemStatusStore: ObservableObject {
         self.batteryMonitor = batteryMonitor
         self.wifiMonitor = wifiMonitor
         self.volumeMonitor = volumeMonitor
+        self.volumeController = volumeMonitor as? any VolumeControlling
         self.refreshInterval = refreshInterval
         self.sleep = sleep
         self.wakeNotificationCenter = wakeNotificationCenter
@@ -119,6 +121,25 @@ final class SystemStatusStore: ObservableObject {
         monitorTasks.removeAll()
         refreshTask?.cancel()
         refreshTask = nil
+    }
+
+    var isVolumeControlAvailable: Bool {
+        volumeController != nil && snapshot.volume.scalar != nil
+    }
+
+    func setVolume(_ scalar: Double) {
+        guard !hasStopped else { return }
+        volumeController?.setVolume(scalar)
+    }
+
+    func toggleMute() {
+        guard !hasStopped else { return }
+        volumeController?.toggleMute()
+    }
+
+    func selectOutputDevice(_ device: AudioOutputDevice) {
+        guard !hasStopped else { return }
+        volumeController?.selectOutputDevice(device.id)
     }
 
     func refreshAll() {

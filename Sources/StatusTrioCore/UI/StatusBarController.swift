@@ -112,6 +112,7 @@ final class StatusBarController: NSObject {
             rootView: StatusPopoverView(
                 store: store,
                 openSettings: handleOpenSettings,
+                openSoundSettings: handleOpenSoundSettings,
                 quit: quitAction
             )
         )
@@ -163,6 +164,23 @@ final class StatusBarController: NSObject {
     @objc private func handleOpenSettings() {
         popover.performClose(nil)
         openSettings()
+    }
+
+    @objc private func handleOpenSoundSettings() {
+        popover.performClose(nil)
+        Self.openSystemSoundSettings()
+    }
+
+    private static func openSystemSoundSettings() {
+        let soundSettingsURLs = [
+            "x-apple.systempreferences:com.apple.Sound-Settings.extension",
+            "x-apple.systempreferences:com.apple.preference.sound"
+        ]
+        .compactMap(URL.init(string:))
+
+        for url in soundSettingsURLs where NSWorkspace.shared.open(url) {
+            return
+        }
     }
 
     private func showMenu() {

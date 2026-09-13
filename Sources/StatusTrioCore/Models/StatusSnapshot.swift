@@ -44,6 +44,19 @@ struct VolumeStatus: Equatable, Sendable {
     let scalar: Double?
     let isMuted: Bool
     let deviceName: String?
+    let outputDevices: [AudioOutputDevice]
+
+    init(
+        scalar: Double?,
+        isMuted: Bool,
+        deviceName: String?,
+        outputDevices: [AudioOutputDevice] = []
+    ) {
+        self.scalar = scalar
+        self.isMuted = isMuted
+        self.deviceName = deviceName
+        self.outputDevices = outputDevices
+    }
 
     static let placeholder = VolumeStatus(
         scalar: nil,

@@ -610,7 +610,7 @@ final class CoreAudioVolumeEventMonitor: VolumeEventMonitoring {
 }
 
 @MainActor
-final class VolumeMonitor: VolumeMonitoring {
+final class VolumeMonitor: VolumeMonitoring, VolumeControlling {
     private enum Lifecycle {
         case idle
         case running
@@ -621,14 +621,17 @@ final class VolumeMonitor: VolumeMonitoring {
     private let continuation: AsyncStream<VolumeStatus>.Continuation
     private let reader: any VolumeReadingProviding
     private let eventMonitor: any VolumeEventMonitoring
+    private let outputController: (any AudioOutputControlling)?
     private var lifecycle = Lifecycle.idle
 
     init(
         reader: any VolumeReadingProviding = CoreAudioVolumeReader(),
-        eventMonitor: any VolumeEventMonitoring = CoreAudioVolumeEventMonitor()
+        eventMonitor: any VolumeEventMonitoring = CoreAudioVolumeEventMonitor(),
+        outputController: (any AudioOutputControlling)? = nil
     ) {
         self.reader = reader
         self.eventMonitor = eventMonitor
+        self.outputController = outputController
         (updates, continuation) = AsyncStream.makeStream()
     }
 
@@ -672,12 +675,31 @@ final class VolumeMonitor: VolumeMonitoring {
             status = VolumeStatus(
                 scalar: reading.scalar,
                 isMuted: reading.isMuted,
-                deviceName: reading.deviceName
+                deviceName: reading.deviceName,
+                outputDevices: outputController?.outputDevices() ?? []
             )
         } else {
             status = .placeholder
         }
         continuation.yield(status)
+    }
+
+    func setVolume(_ scalar: Double) {
+        guard lifecycle != .stopped else { return }
+        _ = outputController?.setVolume(scalar)
+        refresh()
+    }
+
+    func toggleMute() {
+        guard lifecycle != .stopped else { return }
+        _ = outputController?.toggleMute()
+        refresh()
+    }
+
+    func selectOutputDevice(_ deviceID: AudioDeviceID) {
+        guard lifecycle != .stopped else { return }
+        _ = outputController?.selectOutputDevice(deviceID)
+        refresh()
     }
 
     private func teardown() {

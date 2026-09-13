@@ -35,7 +35,7 @@ final class AppEnvironment {
         let store = makeStore(
             batteryMonitor: BatteryMonitor(),
             wifiMonitor: WiFiMonitor(),
-            volumeMonitor: VolumeMonitor()
+            volumeMonitor: VolumeMonitor(outputController: CoreAudioOutputController())
         )
         let settings = SettingsStore()
         let settingsWindowController = SettingsWindowController(store: settings)

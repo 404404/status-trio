@@ -106,6 +106,7 @@ enum StatusPresentation {
 struct StatusPopoverView: View {
     @ObservedObject var store: SystemStatusStore
     let openSettings: () -> Void
+    let openSoundSettings: () -> Void
     let quit: () -> Void
 
     var body: some View {
@@ -124,11 +125,13 @@ struct StatusPopoverView: View {
                 value: StatusPresentation.wifiValue(store.snapshot.wifi)
             )
             Divider()
-            statusRow(
-                icon: "speaker.wave.2.fill",
-                title: "音量",
-                subtitle: StatusPresentation.volumeSubtitle(store.snapshot.volume),
-                value: StatusPresentation.volumeValue(store.snapshot.volume)
+            VolumeControlsView(
+                volume: store.snapshot.volume,
+                isEnabled: store.isVolumeControlAvailable,
+                onVolumeChange: store.setVolume,
+                onToggleMute: store.toggleMute,
+                onSelectOutputDevice: store.selectOutputDevice,
+                onOpenSoundSettings: openSoundSettings
             )
 
             Divider()
