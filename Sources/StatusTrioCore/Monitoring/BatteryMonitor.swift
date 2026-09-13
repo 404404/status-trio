@@ -102,9 +102,9 @@ final class BatteryMonitor: BatteryMonitoring {
     private let reader: any BatteryReadingProviding
     private let lowPowerModeProvider: () -> Bool
     private let iopsRunLoopSourceFactory: IOPSRunLoopSourceFactory
-    private var runLoopSource: CFRunLoopSource?
-    private var lowPowerObserver: NSObjectProtocol?
-    private var callbackContext: Unmanaged<BatteryCallbackContext>?
+    nonisolated(unsafe) private var runLoopSource: CFRunLoopSource?
+    nonisolated(unsafe) private var lowPowerObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var callbackContext: Unmanaged<BatteryCallbackContext>?
     private var lifecycle = Lifecycle.idle
 
     init(
@@ -122,8 +122,16 @@ final class BatteryMonitor: BatteryMonitoring {
         (updates, continuation) = AsyncStream.makeStream()
     }
 
-    isolated deinit {
-        teardownNotifications()
+    deinit {
+        if let runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .defaultMode)
+        }
+        if let lowPowerObserver {
+            NotificationCenter.default.removeObserver(lowPowerObserver)
+        }
+        if let callbackContext {
+            callbackContext.release()
+        }
         continuation.finish()
     }
 

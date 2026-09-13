@@ -37,7 +37,7 @@ final class Localization: ObservableObject {
 
     private let defaults: UserDefaults
     private var preferredLanguages: [String]
-    private var localeObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var localeObserver: NSObjectProtocol?
 
     init(
         defaults: UserDefaults = .standard,
@@ -70,7 +70,7 @@ final class Localization: ObservableObject {
         }
     }
 
-    isolated deinit {
+    deinit {
         if let localeObserver {
             NotificationCenter.default.removeObserver(localeObserver)
         }

@@ -363,10 +363,10 @@ final class CoreAudioVolumeEventMonitor: VolumeEventMonitoring {
         let block: AudioObjectPropertyListenerBlock
     }
 
-    private let client: any CoreAudioClient
+    nonisolated(unsafe) private let client: any CoreAudioClient
     private let callbackQueue: DispatchQueue?
-    private var defaultDeviceRegistration: ListenerRegistration?
-    private var deviceRegistrations: [ListenerRegistration] = []
+    nonisolated(unsafe) private var defaultDeviceRegistration: ListenerRegistration?
+    nonisolated(unsafe) private var deviceRegistrations: [ListenerRegistration] = []
     private var registeredDeviceID: AudioDeviceID?
     private var deviceNeedsReconciliation = true
     private var onDefaultDeviceChange: (@MainActor @Sendable () -> Void)?
@@ -382,8 +382,13 @@ final class CoreAudioVolumeEventMonitor: VolumeEventMonitoring {
         self.callbackQueue = callbackQueue
     }
 
-    isolated deinit {
-        stop()
+    deinit {
+        if let defaultDeviceRegistration {
+            Self.unregister(defaultDeviceRegistration, client: client)
+        }
+        for registration in deviceRegistrations {
+            Self.unregister(registration, client: client)
+        }
     }
 
     func start(
@@ -595,6 +600,13 @@ final class CoreAudioVolumeEventMonitor: VolumeEventMonitoring {
     }
 
     private func removeListener(_ registration: ListenerRegistration) {
+        Self.unregister(registration, client: client)
+    }
+
+    nonisolated private static func unregister(
+        _ registration: ListenerRegistration,
+        client: any CoreAudioClient
+    ) {
         let status = client.removeListener(
             objectID: registration.objectID,
             address: registration.address,
@@ -635,9 +647,13 @@ final class VolumeMonitor: VolumeMonitoring, VolumeControlling {
         (updates, continuation) = AsyncStream.makeStream()
     }
 
-    isolated deinit {
-        guard lifecycle != .stopped else { return }
-        teardown()
+    deinit {
+        MainActor.assumeIsolated {
+            if lifecycle != .stopped {
+                eventMonitor.stop()
+            }
+        }
+        continuation.finish()
     }
 
     func start() {

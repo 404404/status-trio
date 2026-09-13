@@ -290,8 +290,8 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
     private let systemReader: any WiFiSystemReadingProviding
     private let sharingDetector: any InternetSharingDetecting
     private let nameAuthorizer: any WiFiNameAuthorizing
-    private let eventMonitor: any WiFiEventMonitoring
-    private let pathMonitor: any WiFiPathMonitoring
+    nonisolated(unsafe) private let eventMonitor: any WiFiEventMonitoring
+    nonisolated(unsafe) private let pathMonitor: any WiFiPathMonitoring
     private let pathQueue = DispatchQueue(label: "StatusTrio.WiFiPath")
     private let staleInterval: TimeInterval
     private let now: () -> Date
@@ -329,9 +329,12 @@ final class WiFiMonitor: NSObject, WiFiMonitoring, CWEventDelegate {
         }
     }
 
-    isolated deinit {
-        guard lifecycle != .stopped else { return }
-        teardown()
+    deinit {
+        if lifecycle != .stopped {
+            eventMonitor.stop()
+            pathMonitor.cancel()
+            continuation.finish()
+        }
     }
 
     func start() {

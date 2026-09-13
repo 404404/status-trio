@@ -20,7 +20,7 @@ final class SystemStatusStore: ObservableObject {
     private var monitorTasks: [Task<Void, Never>] = []
     private var refreshTask: Task<Void, Never>?
     private var popupPublishTask: Task<Void, Never>?
-    private var wakeObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var wakeObserver: NSObjectProtocol?
     private var lastPublishedSnapshot: StatusSnapshot?
     private var hasStarted = false
     private var hasStopped = false
@@ -51,8 +51,13 @@ final class SystemStatusStore: ObservableObject {
         self.popupSnapshot = initialSnapshot
     }
 
-    isolated deinit {
-        stop()
+    deinit {
+        if let wakeObserver {
+            wakeNotificationCenter.removeObserver(wakeObserver)
+        }
+        monitorTasks.forEach { $0.cancel() }
+        refreshTask?.cancel()
+        popupPublishTask?.cancel()
     }
 
     func start() {

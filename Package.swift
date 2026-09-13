@@ -19,9 +19,6 @@ let package = Package(
             ],
             path: "Sources/StatusTrioCore",
             resources: [.process("Resources")],
-            swiftSettings: [
-                .enableExperimentalFeature("IsolatedDeinit")
-            ],
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("SwiftUI"),
