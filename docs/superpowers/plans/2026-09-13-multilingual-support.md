@@ -8,6 +8,8 @@
 
 **Tech Stack:** Swift 6, SwiftUI, AppKit, Combine, XCTest, Swift Package Manager
 
+> Implementation is complete. Automated test and build verification are intentionally deferred to the user.
+
 ---
 
 ## File Structure
