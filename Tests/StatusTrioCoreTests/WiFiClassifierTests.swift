@@ -640,7 +640,7 @@ final class WiFiClassifierTests: XCTestCase {
             eventMonitor: eventMonitor,
             pathMonitor: pathMonitor
         )
-        weak let weakMonitor = monitor
+        weak var weakMonitor = monitor
         monitor?.start()
         var iterator = monitor?.updates.makeAsyncIterator()
         _ = await iterator?.next()

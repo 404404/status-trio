@@ -229,7 +229,7 @@ final class VolumeMonitorTests: XCTestCase {
             reader: FakeVolumeReader(result: makeReading(scalar: 0.5)),
             eventMonitor: eventMonitor
         )
-        weak let weakMonitor = monitor
+        weak var weakMonitor = monitor
         monitor?.start()
         var iterator = monitor?.updates.makeAsyncIterator()
         _ = await iterator?.next()
