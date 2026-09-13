@@ -26,6 +26,73 @@ final class BatteryMonitorTests: XCTestCase {
         )
     }
 
+    func testParserReadsChargedStateAndTimeToFullCharge() {
+        let description: [String: Any] = [
+            kIOPSTypeKey: kIOPSInternalBatteryType,
+            kIOPSCurrentCapacityKey: 68,
+            kIOPSMaxCapacityKey: 100,
+            kIOPSIsChargingKey: true,
+            kIOPSIsChargedKey: false,
+            kIOPSTimeToFullChargeKey: 85,
+            kIOPSPowerSourceStateKey: kIOPSACPowerValue,
+            kIOPSIsPresentKey: true
+        ]
+
+        XCTAssertEqual(
+            IOPSBatteryReader.parse(description),
+            BatteryReading(
+                currentCapacity: 68,
+                maxCapacity: 100,
+                isCharging: true,
+                isCharged: false,
+                timeToFullChargeMinutes: 85,
+                isConnectedToPower: true,
+                isPresent: true
+            )
+        )
+    }
+
+    func testParserTreatsMissingAndNonPositiveTimeToFullAsUnknown() {
+        for time in [nil, 0, -1] as [Int?] {
+            var description: [String: Any] = [
+                kIOPSTypeKey: kIOPSInternalBatteryType,
+                kIOPSCurrentCapacityKey: 68,
+                kIOPSMaxCapacityKey: 100,
+                kIOPSIsChargingKey: true,
+                kIOPSIsChargedKey: false,
+                kIOPSPowerSourceStateKey: kIOPSACPowerValue,
+                kIOPSIsPresentKey: true
+            ]
+            description[kIOPSTimeToFullChargeKey] = time
+
+            XCTAssertNil(IOPSBatteryReader.parse(description)?.timeToFullChargeMinutes)
+        }
+    }
+
+    func testMonitorOnlyEmitsTimeWhileCharging() async {
+        let reader = FakeBatteryReader(result: BatteryReading(
+            currentCapacity: 68,
+            maxCapacity: 100,
+            isCharging: false,
+            isCharged: true,
+            timeToFullChargeMinutes: 85,
+            isConnectedToPower: true,
+            isPresent: true
+        ))
+        let monitor = BatteryMonitor(
+            reader: reader,
+            lowPowerModeProvider: { false }
+        )
+
+        monitor.refresh()
+        var iterator = monitor.updates.makeAsyncIterator()
+        let value = await iterator.next()
+
+        XCTAssertTrue(value?.isCharged == true)
+        XCTAssertNil(value?.timeToFullChargeMinutes)
+        monitor.stop()
+    }
+
     func testParserRejectsInvalidInternalBatteryDescription() {
         let description: [String: Any] = [
             kIOPSTypeKey: kIOPSInternalBatteryType,
