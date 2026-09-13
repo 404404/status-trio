@@ -6,6 +6,7 @@ enum StatusPresentation {
     static let openLocationSettingsAction = "去设置中允许定位"
     static let openWiFiSettingsAction = "打开 Wi-Fi 设置"
     static let openBatterySettingsAction = "打开电源设置"
+    static let openSoundSettingsAction = "打开声音设置"
     static let statusItemAccessibilityLabel = "Status Trio"
 
     static func statusItemAccessibilityValue(_ snapshot: StatusSnapshot) -> String {

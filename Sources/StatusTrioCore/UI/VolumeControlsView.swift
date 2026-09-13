@@ -20,12 +20,16 @@ struct VolumeControlsView: View {
                 Spacer()
 
                 Button(
-                    "声音设置…",
+                    StatusPresentation.openSoundSettingsAction,
                     systemImage: "gearshape",
                     action: onOpenSoundSettings
                 )
-                .buttonStyle(.link)
-                .controlSize(.small)
+                .labelStyle(.iconOnly)
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help(StatusPresentation.openSoundSettingsAction)
+                .accessibilityLabel(StatusPresentation.openSoundSettingsAction)
+                .frame(width: 24, height: 24)
             }
 
             HStack(spacing: 10) {
