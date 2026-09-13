@@ -166,7 +166,7 @@ git commit -m "feat: add supported language resolution"
 - Modify: `Package.swift`
 - Create: `Tests/StatusTrioCoreTests/LocalizationTests.swift`
 
-- [ ] **Step 1: Write failing localization tests**
+- [x] **Step 1: Write failing localization tests**
 
 ```swift
 import XCTest
@@ -252,13 +252,13 @@ final class LocalizationTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2: Run the focused test and verify failure**
+- [x] **Step 2: Run the focused test and verify failure**
 
 Run: `bash scripts/test.sh LocalizationTests`
 
 Expected: compilation fails because `Localization`, `LocalizationKey`, resources, and `Bundle.module` are not yet configured.
 
-- [ ] **Step 3: Add the exact key inventory**
+- [x] **Step 3: Add the exact key inventory**
 
 Create `LocalizationKey` with these raw values and no others:
 
@@ -298,7 +298,7 @@ accessibility.status, accessibility.battery, accessibility.volume
 
 Use `case menuVersion = "menu.version"`-style Swift cases. Add `CaseIterable` and `Sendable`.
 
-- [ ] **Step 4: Create all twelve `.strings` files**
+- [x] **Step 4: Create all twelve `.strings` files**
 
 Every file must contain the same keys and non-empty translations. Use these source values as the semantic contract:
 
@@ -379,7 +379,7 @@ Every file must contain the same keys and non-empty translations. Use these sour
 
 Translate the complete value set into `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`, `it`, `pt-BR`, `ru`, and `ar`. Preserve every format specifier exactly once and in a grammar-safe order. Arabic resources must use valid UTF-8 Arabic strings.
 
-- [ ] **Step 5: Process resources in SwiftPM**
+- [x] **Step 5: Process resources in SwiftPM**
 
 Add to the `StatusTrioCore` target:
 
@@ -387,7 +387,7 @@ Add to the `StatusTrioCore` target:
 resources: [.process("Resources")]
 ```
 
-- [ ] **Step 6: Implement `Localization`**
+- [x] **Step 6: Implement `Localization`**
 
 Use `@MainActor final class Localization: ObservableObject`, `@Published private(set) var preference`, `@Published private(set) var resolvedLanguage`, and `static let defaultsKey = "appLanguage"`. Persist only fixed-language raw values; `.system` removes the key. Resolve strings through the selected `.lproj` bundle, fall back to `en.lproj`, then return the key. Format with:
 
@@ -403,13 +403,13 @@ func format(_ key: LocalizationKey, _ arguments: CVarArg...) -> String {
 
 Observe `NSLocale.currentLocaleDidChangeNotification` and re-resolve only while the preference is `.system`.
 
-- [ ] **Step 7: Run localization tests**
+- [x] **Step 7: Run localization tests**
 
 Run: `bash scripts/test.sh LocalizationTests`
 
 Expected: all localization and completeness tests pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add Package.swift Sources/StatusTrioCore/Localization \

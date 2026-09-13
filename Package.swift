@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "StatusTrio",
+    defaultLocalization: "en",
     platforms: [.macOS(.v15)],
     products: [
         .executable(name: "StatusTrio", targets: ["StatusTrio"])
@@ -11,6 +12,7 @@ let package = Package(
         .target(
             name: "StatusTrioCore",
             path: "Sources/StatusTrioCore",
+            resources: [.process("Resources")],
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("SwiftUI"),
