@@ -70,5 +70,12 @@ final class StatusMenuBuilderTests: XCTestCase {
                 "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices"
             ]
         )
+        XCTAssertEqual(
+            StatusBarController.batterySettingsURLs.map(\.absoluteString),
+            [
+                "x-apple.systempreferences:com.apple.Battery-Settings.extension",
+                "x-apple.systempreferences:com.apple.preference.battery"
+            ]
+        )
     }
 }

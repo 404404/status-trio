@@ -109,6 +109,7 @@ final class StatusPresentationTests: XCTestCase {
         XCTAssertEqual(StatusPresentation.requestWiFiNameAction, "允许定位以显示 Wi-Fi 名称")
         XCTAssertEqual(StatusPresentation.openLocationSettingsAction, "去设置中允许定位")
         XCTAssertEqual(StatusPresentation.openWiFiSettingsAction, "打开 Wi-Fi 设置")
+        XCTAssertEqual(StatusPresentation.openBatterySettingsAction, "打开电源设置")
     }
 
     func testWiFiSubtitlePrefersSSID() {

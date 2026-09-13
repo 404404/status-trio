@@ -5,6 +5,7 @@ enum StatusPresentation {
     static let requestWiFiNameAction = "允许定位以显示 Wi-Fi 名称"
     static let openLocationSettingsAction = "去设置中允许定位"
     static let openWiFiSettingsAction = "打开 Wi-Fi 设置"
+    static let openBatterySettingsAction = "打开电源设置"
     static let statusItemAccessibilityLabel = "Status Trio"
 
     static func statusItemAccessibilityValue(_ snapshot: StatusSnapshot) -> String {
@@ -144,6 +145,7 @@ enum StatusPresentation {
 struct StatusPopoverView: View {
     @ObservedObject var store: SystemStatusStore
     let requestWiFiNameAccess: () -> Void
+    let openBatterySettings: () -> Void
     let openWiFiSettings: () -> Void
     let openLocationSettings: () -> Void
     let openSettings: () -> Void
@@ -152,11 +154,9 @@ struct StatusPopoverView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            statusRow(
-                icon: "battery.100",
-                title: "电池",
-                subtitle: StatusPresentation.batterySubtitle(store.snapshot.battery),
-                value: "\(store.snapshot.battery.percentage)%"
+            BatteryStatusView(
+                battery: store.snapshot.battery,
+                onOpenBatterySettings: openBatterySettings
             )
             Divider()
             WiFiStatusView(
@@ -192,28 +192,4 @@ struct StatusPopoverView: View {
         .frame(width: 300)
     }
 
-    private func statusRow(
-        icon: String,
-        title: String,
-        subtitle: String,
-        value: String
-    ) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .frame(width: 24)
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            Spacer()
-            Text(value)
-                .font(.body.monospacedDigit().weight(.semibold))
-        }
-    }
 }

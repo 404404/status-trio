@@ -112,6 +112,7 @@ final class StatusBarController: NSObject {
             rootView: StatusPopoverView(
                 store: store,
                 requestWiFiNameAccess: handleRequestWiFiNameAccess,
+                openBatterySettings: handleOpenBatterySettings,
                 openWiFiSettings: handleOpenWiFiSettings,
                 openLocationSettings: handleOpenLocationSettings,
                 openSettings: handleOpenSettings,
@@ -174,6 +175,11 @@ final class StatusBarController: NSObject {
         store.requestWiFiNameAccess()
     }
 
+    @objc private func handleOpenBatterySettings() {
+        popover.performClose(nil)
+        Self.openSystemSettings(Self.batterySettingsURLs)
+    }
+
     @objc private func handleOpenWiFiSettings() {
         popover.performClose(nil)
         Self.openSystemSettings(Self.wifiSettingsURLs)
@@ -188,6 +194,12 @@ final class StatusBarController: NSObject {
         popover.performClose(nil)
         Self.openSystemSoundSettings()
     }
+
+    static let batterySettingsURLs = [
+        "x-apple.systempreferences:com.apple.Battery-Settings.extension",
+        "x-apple.systempreferences:com.apple.preference.battery"
+    ]
+    .compactMap(URL.init(string:))
 
     static let wifiSettingsURLs = [
         "x-apple.systempreferences:com.apple.Network-Settings.extension",
