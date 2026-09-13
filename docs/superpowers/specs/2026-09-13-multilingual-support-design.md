@@ -32,7 +32,7 @@
 2. 设置页提供语言选择，选项为“跟随系统”加上述 12 种语言。
 3. 选择保存到 `UserDefaults`，应用重启后保持。
 4. 语言变化立即刷新界面，无需重启。
-5. 系统语言为中文、日语或韩语时正确区分简繁中文；无法匹配时回退英语。
+5. 系统语言为中文时按地区与脚本正确区分简繁中文；其他语言无法匹配时回退英语。
 6. 阿拉伯语使用从右到左布局。
 7. 所有应用自有用户可见文案均可本地化；系统权限弹窗使用 `InfoPlist.strings` 提供译文。
 
@@ -162,7 +162,7 @@ Sources/StatusTrioCore/Resources/
 - 无障碍值的拼接使用完整格式键，例如 `accessibility.status` 接收电池、Wi-Fi、音量三段字符串。
 - 比较“是否处于普通电池供电状态”时使用 `BatteryStatus` 状态字段，不再比较本地化字符串。
 - `SettingsView`、`WiFiStatusView`、`BatteryStatusView`、`VolumeControlsView`、`OutputDeviceList`、`OutputDeviceRow` 中所有硬编码可见文案改为 `LocalizationKey`。
-- 未找到名称的系统设备不在数据层写死中文：`VolumeReading.deviceName` 改为可选，`CoreAudioOutputDevice` 名称也允许为空，由展示层显示本地化的“未知输出设备/无默认输出设备”。
+- 未找到名称的系统设备不在数据层写死中文：`VolumeReading.deviceName` 与 `AudioOutputDevice.name` 改为可选，由展示层显示本地化的“未知输出设备/无默认输出设备”。
 
 ### 5.8 字体、布局与格式化
 
