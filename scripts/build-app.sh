@@ -190,6 +190,38 @@ codesign "${SIGNING_ARGS[@]}" "$CONTENTS/Frameworks/Sparkle.framework"
 codesign "${SIGNING_ARGS[@]}" "$APP_DIR"
 codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 
+plutil -lint "$CONTENTS/Info.plist"
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$CONTENTS/Info.plist")" == "$BUNDLE_ID" ]] || {
+    echo "Error: packaged CFBundleIdentifier does not match the requested bundle identifier." >&2
+    exit 1
+}
+[[ -f "$CONTENTS/Resources/AppIcon.icns" ]] || { echo "Error: packaged app icon is missing." >&2; exit 1; }
+[[ -d "$CONTENTS/Resources/StatusTrio_StatusTrioCore.bundle" ]] || { echo "Error: packaged resource bundle is missing." >&2; exit 1; }
+
+if [[ "$UNIVERSAL_BUILD" == "1" ]]; then
+    verify_universal_binary() {
+        local binary="$1"
+        local architectures
+        architectures="$(lipo -archs "$binary")"
+        if [[ "$architectures" != *"arm64"* || "$architectures" != *"x86_64"* ]]; then
+            echo "Error: expected universal arm64+x86_64 binary: $binary ($architectures)" >&2
+            exit 1
+        fi
+    }
+
+    verify_universal_binary "$CONTENTS/MacOS/StatusTrio"
+    while IFS= read -r binary; do
+        if file "$binary" | grep -q 'Mach-O'; then
+            verify_universal_binary "$binary"
+        fi
+    done < <(find "$CONTENTS/Frameworks" -type f -perm -111)
+fi
+
+if otool -L "$CONTENTS/MacOS/StatusTrio" | grep -Eq '(/Users/|/private/var/)'; then
+    echo "Error: packaged executable contains a developer-machine dynamic-library reference." >&2
+    exit 1
+fi
+
 echo "Built $APP_DIR (bundle id: $BUNDLE_ID)"
 
 if [[ "$OPEN_APP" == "open" ]]; then

@@ -12,7 +12,7 @@ require_command() {
     command -v "$1" >/dev/null 2>&1 || { echo "Error: required command '$1' is not available." >&2; exit 1; }
 }
 
-for command in ruby swift hdiutil shasum plutil ditto /usr/bin/codesign /usr/bin/xcrun; do require_command "$command"; done
+for command in ruby swift hdiutil shasum plutil ditto file lipo otool /usr/bin/codesign /usr/bin/xcrun; do require_command "$command"; done
 cd "$ROOT"
 
 APP_NAME="${APP_NAME:-$(read_config app_name)}"
@@ -97,6 +97,16 @@ ln -s /Applications "$STAGING_DIR/Applications"
 DMG_PATH="$OUTPUT_DIR/$DMG_BASENAME-$VERSION.dmg"
 rm -f "$DMG_PATH" "$DMG_PATH.sha256"
 hdiutil create -quiet -volname "$APP_NAME" -srcfolder "$STAGING_DIR" -ov -format UDZO "$DMG_PATH"
+hdiutil verify "$DMG_PATH"
+MOUNT_POINT="$TEMP_ROOT/mount"
+mkdir -p "$MOUNT_POINT"
+hdiutil attach -quiet -readonly -nobrowse -mountpoint "$MOUNT_POINT" "$DMG_PATH"
+if [[ ! -d "$MOUNT_POINT/$APP_NAME.app" || ! -L "$MOUNT_POINT/Applications" || "$(readlink "$MOUNT_POINT/Applications")" != "/Applications" ]]; then
+    hdiutil detach -quiet "$MOUNT_POINT" || true
+    echo "Error: DMG must contain $APP_NAME.app and an Applications shortcut." >&2
+    exit 1
+fi
+hdiutil detach -quiet "$MOUNT_POINT"
 if [[ -n "$NOTARY_PROFILE" ]]; then
     xcrun notarytool submit "$DMG_PATH" --keychain-profile "$NOTARY_PROFILE" --wait
     xcrun stapler staple "$DMG_PATH"
