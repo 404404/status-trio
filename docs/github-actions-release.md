@@ -7,7 +7,7 @@
 在 Actions 页面运行 **Build and Release macOS**，指定：
 
 - `version=1.1.0`
-- `build=5`
+- `build=6`
 - `publish=false`
 - `publish_appcast=false`
 
