@@ -217,7 +217,7 @@ if [[ "$UNIVERSAL_BUILD" == "1" ]]; then
     done < <(find "$CONTENTS/Frameworks" -type f -perm -111)
 fi
 
-if otool -L "$CONTENTS/MacOS/StatusTrio" | grep -Eq '(/Users/|/private/var/)'; then
+if otool -L "$CONTENTS/MacOS/StatusTrio" | tail -n +2 | grep -Eq '(/Users/|/private/var/)'; then
     echo "Error: packaged executable contains a developer-machine dynamic-library reference." >&2
     exit 1
 fi
