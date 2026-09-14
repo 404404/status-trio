@@ -18,7 +18,7 @@ final class SingleInstanceGuardTests: XCTestCase {
         )
         XCTAssertEqual(
             SingleInstanceGuard.lockFileName(for: "  "),
-            "com.lingsmbp.StatusTrio.lock"
+            "io.github.404404.StatusTrio.lock"
         )
     }
 
