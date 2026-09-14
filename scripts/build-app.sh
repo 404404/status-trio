@@ -217,7 +217,16 @@ if [[ "$UNIVERSAL_BUILD" == "1" ]]; then
     done < <(find "$CONTENTS/Frameworks" -type f -perm -111)
 fi
 
-if otool -L "$CONTENTS/MacOS/StatusTrio" | tail -n +2 | grep -Eq '(/Users/|/private/var/)'; then
+if [[ "$UNIVERSAL_BUILD" == "1" ]]; then
+    DYNAMIC_LIBRARY_ENTRIES="$(
+        for architecture in arm64 x86_64; do
+            otool -arch "$architecture" -L "$CONTENTS/MacOS/StatusTrio" | tail -n +2
+        done
+    )"
+else
+    DYNAMIC_LIBRARY_ENTRIES="$(otool -L "$CONTENTS/MacOS/StatusTrio" | tail -n +2)"
+fi
+if printf '%s\n' "$DYNAMIC_LIBRARY_ENTRIES" | grep -Eq '(/Users/|/private/var/)'; then
     echo "Error: packaged executable contains a developer-machine dynamic-library reference." >&2
     exit 1
 fi
