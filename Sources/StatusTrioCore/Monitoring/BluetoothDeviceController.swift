@@ -20,7 +20,7 @@ private final class IOBluetoothPairedDeviceWorker: @unchecked Sendable {
                 completion(.unavailable)
                 return
             }
-            guard Int(controller.powerState) != 0 else {
+            guard controller.powerState != kBluetoothHCIPowerStateON else {
                 completion(.poweredOff)
                 return
             }
