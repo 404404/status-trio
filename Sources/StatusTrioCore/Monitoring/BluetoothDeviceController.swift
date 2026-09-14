@@ -32,7 +32,7 @@ private final class IOBluetoothPairedDeviceWorker: @unchecked Sendable {
                     return BluetoothDevice(
                         id: identifier,
                         name: name,
-                        kind: kind(for: Int(device.deviceClassMajor)),
+                        kind: self.kind(for: Int(device.deviceClassMajor)),
                         isConnected: device.isConnected()
                     )
                 }
