@@ -1,9 +1,6 @@
 name: Build and Release macOS
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
       version:
@@ -19,7 +16,12 @@ on:
         required: false
         type: string
       publish:
-        description: "Create a GitHub Release and publish appcast.xml."
+        description: "Create a GitHub Release with DMG and SHA-256 assets."
+        required: true
+        default: false
+        type: boolean
+      publish_appcast:
+        description: "Also publish a signed Sparkle appcast using this fork’s matching key pair."
         required: true
         default: false
         type: boolean
@@ -46,7 +48,9 @@ jobs:
     env:
       RELEASE_REPO: ${{ vars.RELEASE_REPO }}
       RELEASE_BRANCH: ${{ vars.RELEASE_BRANCH }}
-      PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
+      PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish || false }}
+      PUBLISH_APPCAST: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_appcast || false }}
+      RELEASE_TARGET: ${{ github.sha }}
 
     steps:
       - name: Check out repository
@@ -54,10 +58,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Show toolchain
+      - name: Select Xcode 16.4 and verify Swift 6.1.2
         run: |
-          swift --version
-          xcodebuild -version
+          set -euo pipefail
+          XCODE_PATH="/Applications/Xcode_16.4.app"
+          if [[ ! -d "${XCODE_PATH}" ]]; then
+            echo "::error::Xcode 16.4 is unavailable on this runner."
+            exit 1
+          fi
+          sudo xcode-select --switch "${XCODE_PATH}/Contents/Developer"
+          echo "DEVELOPER_DIR=${XCODE_PATH}/Contents/Developer" >> "${GITHUB_ENV}"
+          xcodebuild -version | grep -F "Xcode 16.4"
+          swift --version | grep -F "Swift version 6.1.2"
 
       - name: Resolve release version
         env:
@@ -103,14 +115,15 @@ jobs:
 
           echo "Resolved release ${TAG}: ${VERSION} (${BUILD})"
 
-      - name: Validate Sparkle signing secret
-        if: ${{ env.PUBLISH == 'true' }}
+      - name: Validate Sparkle signing configuration
+        if: ${{ env.PUBLISH_APPCAST == 'true' }}
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
         run: |
           set -euo pipefail
-          if [[ -z "${SPARKLE_PRIVATE_KEY}" ]]; then
-            echo "::error::Set the SPARKLE_PRIVATE_KEY repository secret before publishing updates."
+          if [[ -z "${SPARKLE_PRIVATE_KEY}" || -z "${SPARKLE_PUBLIC_KEY}" ]]; then
+            echo "::error::Set matching SPARKLE_PRIVATE_KEY secret and SPARKLE_PUBLIC_KEY repository variable before publishing Sparkle updates."
             exit 1
           fi
 
@@ -277,6 +290,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
         run: bash scripts/release.sh
 
       - name: Upload release artifacts

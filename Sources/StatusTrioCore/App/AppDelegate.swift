@@ -4,7 +4,6 @@ import AppKit
 public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var environment: AppEnvironment?
     private var singleInstanceGuard: SingleInstanceGuard?
-    private let updaterManager = UpdaterManager.shared
 
     public override init() {
         super.init()
@@ -18,7 +17,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         self.singleInstanceGuard = singleInstanceGuard
 
         NSApplication.shared.setActivationPolicy(.accessory)
-        updaterManager.start()
+        if UpdaterManager.isEnabled {
+            UpdaterManager.shared.start()
+        }
         let environment = AppEnvironment.live()
         self.environment = environment
         environment.store.start()

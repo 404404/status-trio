@@ -27,8 +27,8 @@ enum AppMetadata {
         return value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : value
     }
 
-    static let repositoryDisplayName = "github.com/lingyired/status-trio"
-    static let repositoryURL = URL(string: "https://github.com/lingyired/status-trio")!
+    static let repositoryDisplayName = "github.com/404404/status-trio"
+    static let repositoryURL = URL(string: "https://github.com/404404/status-trio")!
     static let projectHomepageURL = URL(string: "http://statustrio.lingai.net/")!
     static let authorName = "lingyired"
     static let authorURL = URL(string: "https://github.com/lingyired")!

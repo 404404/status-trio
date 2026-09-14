@@ -4,12 +4,14 @@ set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIGURATION="${1:-release}"
 OPEN_APP="${2:-open}"
-BUNDLE_ID="${BUNDLE_ID:-com.lingsmbp.StatusTrio}"
+BUNDLE_ID="${BUNDLE_ID:-io.github.404404.StatusTrio}"
 APP_NAME="${APP_NAME:-Status Trio}"
 APP_VERSION="${APP_VERSION:-}"
 BUILD_NUMBER="${BUILD_NUMBER:-}"
 SU_FEED_URL="${SU_FEED_URL:-}"
 UNIVERSAL_BUILD="${UNIVERSAL_BUILD:-0}"
+AUTOMATIC_UPDATES_ENABLED="${AUTOMATIC_UPDATES_ENABLED:-0}"
+SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-}"
 
 case "$OPEN_APP" in
     open|no-open) ;;
@@ -51,6 +53,19 @@ case "$UNIVERSAL_BUILD" in
         exit 2
         ;;
 esac
+
+case "$AUTOMATIC_UPDATES_ENABLED" in
+    0|1) ;;
+    *)
+        echo "Error: AUTOMATIC_UPDATES_ENABLED must be 0 or 1." >&2
+        exit 2
+        ;;
+esac
+
+if [[ "$AUTOMATIC_UPDATES_ENABLED" == "1" && ( -z "$SU_FEED_URL" || -z "$SPARKLE_PUBLIC_KEY" ) ]]; then
+    echo "Error: Sparkle builds require SU_FEED_URL and SPARKLE_PUBLIC_KEY." >&2
+    exit 2
+fi
 
 cd "$ROOT"
 
@@ -124,8 +139,14 @@ if [[ -n "$BUILD_NUMBER" ]]; then
     /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$CONTENTS/Info.plist"
 fi
 
-if [[ -n "$SU_FEED_URL" ]]; then
-    /usr/libexec/PlistBuddy -c "Set :SUFeedURL $SU_FEED_URL" "$CONTENTS/Info.plist"
+if [[ "$AUTOMATIC_UPDATES_ENABLED" == "1" ]]; then
+    /usr/libexec/PlistBuddy -c "Set :StatusTrioEnableSparkle true" "$CONTENTS/Info.plist"
+    /usr/libexec/PlistBuddy -c "Add :SUFeedURL string $SU_FEED_URL" "$CONTENTS/Info.plist"
+    /usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $SPARKLE_PUBLIC_KEY" "$CONTENTS/Info.plist"
+else
+    /usr/libexec/PlistBuddy -c "Set :StatusTrioEnableSparkle false" "$CONTENTS/Info.plist"
+    /usr/libexec/PlistBuddy -c "Delete :SUFeedURL" "$CONTENTS/Info.plist" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Delete :SUPublicEDKey" "$CONTENTS/Info.plist" 2>/dev/null || true
 fi
 INFO_PLIST_COUNT="$(find "$ROOT/Sources/StatusTrioCore/Resources" -name 'InfoPlist.strings' -type f | wc -l | tr -d ' ')"
 if [[ "$INFO_PLIST_COUNT" -ne 12 ]]; then

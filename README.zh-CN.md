@@ -47,7 +47,7 @@ Status Trio 是一个原生 macOS 菜单栏（menubar）应用，将 Wi-Fi、电
 ## 从源码运行
 
 ```bash
-git clone https://github.com/lingyired/status-trio.git
+git clone https://github.com/404404/status-trio.git
 cd status-trio
 swift run StatusTrio
 ```
@@ -70,7 +70,7 @@ ad-hoc 签名的应用包适合本地个人使用。如果应用包携带 quaran
 
 ## 安装 GitHub Release
 
-从 [GitHub Releases](https://github.com/lingyired/status-trio/releases) 下载最新的 `StatusTrio-*.dmg`，打开后将 `Status Trio.app` 拖入 `/Applications`。
+从 [GitHub Releases](https://github.com/404404/status-trio/releases) 下载最新的 `StatusTrio-*.dmg`，打开后将 `Status Trio.app` 拖入 `/Applications`。
 
 当前公开版本使用 ad-hoc 签名，尚未经过 Apple notarization。macOS 首次启动时可能提示：
 
@@ -87,7 +87,7 @@ open "/Applications/Status Trio.app"
 
 也可以先尝试打开一次应用，然后前往 **系统设置 → 隐私与安全性**，选择 **仍要打开**。
 
-不要全局关闭 Gatekeeper。后续 Sparkle 更新会通过应用的 EdDSA 签名密钥进行验证；通常只有第一次手动安装时需要执行 `xattr` 命令。
+不要全局关闭 Gatekeeper。本 fork 当前只通过 GitHub Releases 发布；在配置本 fork 自己匹配的签名密钥对前，Sparkle 自动更新保持关闭。
 
 ## 使用方法
 
@@ -127,7 +127,7 @@ bash scripts/build-worktree.sh release
 该脚本会根据当前分支生成开发版 bundle identifier 和显示名称，也可以通过环境变量覆盖：
 
 ```bash
-BUNDLE_ID=com.lingsmbp.StatusTrio.dev.settings-redesign \
+BUNDLE_ID=io.github.404404.StatusTrio.dev.settings-redesign \
 APP_NAME="Status Trio (Settings Redesign)" \
 bash scripts/build-worktree.sh release
 ```

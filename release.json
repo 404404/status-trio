@@ -1,12 +1,13 @@
 {
   "app_name": "Status Trio",
-  "bundle_id": "com.lingsmbp.StatusTrio",
-  "github_repo": "lingyired/status-trio",
+  "bundle_id": "io.github.404404.StatusTrio",
+  "github_repo": "404404/status-trio",
   "git_branch": "main",
   "min_system_version": "15.0",
   "bundle_name": "Status Trio.app",
   "dmg_name": "StatusTrio.dmg",
   "appcast_file": "appcast.xml",
+  "sparkle_enabled": false,
   "derived_data_prefixes": [
     "StatusTrio-",
     "Status Trio-"

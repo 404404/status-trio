@@ -3,7 +3,7 @@ import IOKit.ps
 import OSLog
 
 private let batteryMonitorLogger = Logger(
-    subsystem: "com.lingsmbp.StatusTrio",
+    subsystem: "io.github.404404.StatusTrio",
     category: "battery"
 )
 
