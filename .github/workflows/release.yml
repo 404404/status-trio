@@ -1,6 +1,8 @@
 name: Build and Release macOS
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       version:
