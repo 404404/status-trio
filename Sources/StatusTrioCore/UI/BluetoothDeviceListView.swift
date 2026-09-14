@@ -43,17 +43,17 @@ struct BluetoothStatusView: View {
     private var summary: String {
         switch controller.availability {
         case .idle:
-            localization.string(.bluetoothUnavailable)
+            return localization.string(.bluetoothUnavailable)
         case .available:
             let devices = controller.connectedDevices
             if devices.isEmpty { return localization.string(.bluetoothNoConnectedDevices) }
             return devices.map(\.name).joined(separator: ", ")
         case .poweredOff:
-            localization.string(.bluetoothOff)
+            return localization.string(.bluetoothOff)
         case .unavailable:
-            localization.string(.bluetoothUnavailable)
+            return localization.string(.bluetoothUnavailable)
         case .failed:
-            localization.string(.bluetoothReadFailed)
+            return localization.string(.bluetoothReadFailed)
         }
     }
 }

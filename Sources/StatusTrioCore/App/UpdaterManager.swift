@@ -9,7 +9,7 @@ final class UpdaterManager: NSObject, ObservableObject, SPUUpdaterDelegate {
 
     /// Release-only fork builds set this key to false while they do not have a
     /// Sparkle key pair. A missing key keeps source/test builds usable.
-    static var isEnabled: Bool {
+    nonisolated static var isEnabled: Bool {
         (Bundle.main.object(forInfoDictionaryKey: "StatusTrioEnableSparkle") as? Bool) ?? true
     }
 

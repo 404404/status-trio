@@ -97,7 +97,7 @@ private final class CoreWLANNetworkWorker: @unchecked Sendable {
             let networks = try interface.scanForNetworks(withSSID: nil)
             guard let target = networks.first(where: {
                 $0.ssid == selected.ssid
-                    && WiFiSecurityKind(coreWLANRawValue: $0.security.rawValue) == selected.security
+                    && securityKind(for: $0) == selected.security
                     && bssid($0.bssid, matches: targetBSSID)
             }) else {
                 return .networkUnavailable
@@ -124,6 +124,28 @@ private final class CoreWLANNetworkWorker: @unchecked Sendable {
         }
     }
 
+    private func securityKind(for network: CWNetwork) -> WiFiSecurityKind {
+        let preferredKinds: [(CWSecurity, WiFiSecurityKind)] = [
+            (.wpa3Transition, .wpa3Transition),
+            (.wpa3Enterprise, .wpa3Enterprise),
+            (.wpa3Personal, .wpa3Personal),
+            (.oweTransition, .oweTransition),
+            (.OWE, .owe),
+            (.wpa2Enterprise, .wpa2Enterprise),
+            (.wpaEnterpriseMixed, .wpaEnterpriseMixed),
+            (.wpaEnterprise, .wpaEnterprise),
+            (.enterprise, .enterprise),
+            (.wpa2Personal, .wpa2Personal),
+            (.wpaPersonalMixed, .wpaPersonalMixed),
+            (.wpaPersonal, .wpaPersonal),
+            (.personal, .personal),
+            (.dynamicWEP, .dynamicWEP),
+            (.WEP, .wep),
+            (.none, .open)
+        ]
+        return preferredKinds.first { network.supportsSecurity($0.0) }?.1 ?? .unknown
+    }
+
     private func projectCandidate(_ network: CWNetwork) -> WiFiNetworkCandidate? {
         guard let ssid = network.ssid else { return nil }
         return WiFiNetworkCandidate(
@@ -131,7 +153,7 @@ private final class CoreWLANNetworkWorker: @unchecked Sendable {
             bssid: network.bssid,
             rssi: normalizedMeasurement(network.rssiValue),
             channel: network.wlanChannel?.channelNumber,
-            security: WiFiSecurityKind(coreWLANRawValue: network.security.rawValue)
+            security: securityKind(for: network)
         )
     }
 
@@ -194,7 +216,7 @@ private final class CoreWLANNetworkWorker: @unchecked Sendable {
 
     private func displayBand(_ rawValue: Int?) -> String? {
         guard let rawValue else { return nil }
-        switch rawValue {
+        return switch rawValue {
         case 1: "2.4 GHz"
         case 2: "5 GHz"
         case 3: "6 GHz"
@@ -204,7 +226,7 @@ private final class CoreWLANNetworkWorker: @unchecked Sendable {
 
     private func displayChannelWidth(_ rawValue: Int?) -> String? {
         guard let rawValue else { return nil }
-        switch rawValue {
+        return switch rawValue {
         case 1: "20 MHz"
         case 2: "40 MHz"
         case 3: "80 MHz"
@@ -214,7 +236,7 @@ private final class CoreWLANNetworkWorker: @unchecked Sendable {
     }
 
     private func displayPHY(_ rawValue: Int) -> String? {
-        switch rawValue {
+        return switch rawValue {
         case 1: "802.11a"
         case 2: "802.11b"
         case 3: "802.11g"

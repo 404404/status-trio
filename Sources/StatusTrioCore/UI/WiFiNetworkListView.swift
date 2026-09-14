@@ -216,7 +216,7 @@ struct WiFiNetworkListView: View {
 
     private func signalSymbol(for rssi: Int?) -> String {
         guard let rssi else { return "wifi.exclamationmark" }
-        switch StatusMappings.wifiBars(rssi: rssi) {
+        return switch StatusMappings.wifiBars(rssi: rssi) {
         case 0: "wifi.exclamationmark"
         case 1: "wifi"
         default: "wifi"
