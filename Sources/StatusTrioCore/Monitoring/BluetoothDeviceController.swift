@@ -163,12 +163,6 @@ final class BluetoothDeviceController: ObservableObject {
 
     deinit {
         periodicRefreshTask?.cancel()
-        if let applicationObserver {
-            notificationCenter.removeObserver(applicationObserver)
-        }
-        if let wakeObserver {
-            workspaceNotificationCenter.removeObserver(wakeObserver)
-        }
     }
 
 
