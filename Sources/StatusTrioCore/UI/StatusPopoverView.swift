@@ -301,11 +301,21 @@ struct StatusPopoverView: View {
             }
 
             Divider()
-            Button(localization.string(.menuSettings), action: openSettings)
-                .buttonStyle(.plain)
-            Button(localization.string(.menuQuit), action: quit)
-                .buttonStyle(.plain)
-                .keyboardShortcut("q")
+
+            Button {
+                openSettings()
+            } label: {
+                Text(localization.string(.menuSettings))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button(localization.string(.menuQuit)) {
+                quit()
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut("q")
         }
     }
 
