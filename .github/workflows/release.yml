@@ -9,12 +9,16 @@ on:
         description: "Marketing version, for example 1.2.0. Defaults to Support/Info.plist."
         required: false
         type: string
+      fork_revision:
+        description: "Positive numeric fork revision for this upstream version. Defaults to StatusTrioForkRevision in Support/Info.plist."
+        required: false
+        type: string
       build:
-        description: "Numeric CFBundleVersion. Defaults to the GitHub run number for manual runs."
+        description: "Numeric CFBundleVersion. Defaults to Support/Info.plist."
         required: false
         type: string
       tag:
-        description: "Release tag. Defaults to vVERSION."
+        description: "Release tag. Defaults to vVERSION-fork.REVISION."
         required: false
         type: string
       publish:
@@ -76,47 +80,55 @@ jobs:
       - name: Resolve release version
         env:
           VERSION_INPUT: ${{ inputs.version }}
+          FORK_REVISION_INPUT: ${{ inputs.fork_revision }}
           BUILD_INPUT: ${{ inputs.build }}
           TAG_INPUT: ${{ inputs.tag }}
         run: |
           set -euo pipefail
 
-          PLIST_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Support/Info.plist)"
-          PLIST_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' Support/Info.plist)"
+          PLIST_VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Support/Info.plist)"
+          PLIST_FORK_REVISION="$(/usr/libexec/PlistBuddy -c "Print :StatusTrioForkRevision" Support/Info.plist)"
+          PLIST_BUILD="$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" Support/Info.plist)"
 
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            TAG="${GITHUB_REF_NAME}"
-            VERSION="${TAG#v}"
-            BUILD="${PLIST_BUILD}"
-
-            if [[ "${VERSION}" != "${PLIST_VERSION}" ]]; then
-              echo "::error::Tag ${TAG} does not match CFBundleShortVersionString ${PLIST_VERSION}."
-              exit 1
-            fi
-          else
-            VERSION="${VERSION_INPUT:-${PLIST_VERSION}}"
-            BUILD="${BUILD_INPUT:-${GITHUB_RUN_NUMBER}}"
-            TAG="${TAG_INPUT:-v${VERSION}}"
-          fi
+          VERSION="${VERSION_INPUT:-${PLIST_VERSION}}"
+          FORK_REVISION="${FORK_REVISION_INPUT:-${PLIST_FORK_REVISION}}"
+          BUILD="${BUILD_INPUT:-${PLIST_BUILD}}"
+          TAG="${TAG_INPUT:-v${VERSION}-fork.${FORK_REVISION}}"
+          EXPECTED_TAG="v${VERSION}-fork.${FORK_REVISION}"
 
           if [[ ! "${VERSION}" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
             echo "::error::VERSION must contain dot-separated numbers."
             exit 1
           fi
-
+          if [[ ! "${FORK_REVISION}" =~ ^[0-9]+$ || "${FORK_REVISION}" == "0" ]]; then
+            echo "::error::FORK_REVISION must be a positive integer."
+            exit 1
+          fi
           if [[ ! "${BUILD}" =~ ^[0-9]+$ ]]; then
             echo "::error::BUILD must contain only digits."
+            exit 1
+          fi
+          if [[ "${TAG}" != "${EXPECTED_TAG}" ]]; then
+            echo "::error::TAG must be ${EXPECTED_TAG}."
+            exit 1
+          fi
+          if [[ "${VERSION}" != "${PLIST_VERSION}" || "${FORK_REVISION}" != "${PLIST_FORK_REVISION}" || "${BUILD}" != "${PLIST_BUILD}" ]]; then
+            echo "::error::Workflow version inputs must match the checked-out Support/Info.plist. Update source metadata before preflight or publishing."
+            exit 1
+          fi
+          if [[ "${PUBLISH}" == "true" && "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "::error::Formal publication must run from main after the preflighted commit is merged."
             exit 1
           fi
 
           {
             echo "VERSION=${VERSION}"
+            echo "FORK_REVISION=${FORK_REVISION}"
             echo "BUILD=${BUILD}"
             echo "TAG=${TAG}"
           } >> "${GITHUB_ENV}"
 
-          echo "Resolved release ${TAG}: ${VERSION} (${BUILD})"
-
+          echo "Resolved release ${TAG}: upstream ${VERSION}, fork ${FORK_REVISION}, build ${BUILD}"
       - name: Validate Sparkle signing configuration
         if: ${{ env.PUBLISH_APPCAST == 'true' }}
         env:
@@ -245,6 +257,7 @@ jobs:
 
           {
             printf '# Version %s （English + 中文， 中文在下方）\n\n' "${VERSION}"
+            printf "Upstream version: %s · Fork revision: %s · Build: %s\n\n" "${VERSION}" "${FORK_REVISION}" "${BUILD}"
             printf '## English\n\n'
             cat "${NOTES_PATH}"
             printf '\n## 中文\n\n'

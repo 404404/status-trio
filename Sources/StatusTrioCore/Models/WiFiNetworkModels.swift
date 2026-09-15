@@ -170,6 +170,25 @@ struct WiFiConnectionDetails: Equatable, Sendable {
     )
 }
 
+enum WiFiCredentialSource: Equatable, Sendable {
+    case appKeychain
+    case systemKeychain
+}
+
+enum WiFiCredentialIssue: Equatable, Sendable {
+    case cancelled
+    case accessDenied
+    case keychainLocked
+    case readFailed
+    case saveFailed
+}
+
+enum WiFiCredentialResult: Equatable, Sendable {
+    case credential(String, WiFiCredentialSource)
+    case noCredential
+    case issue(WiFiCredentialIssue)
+}
+
 enum WiFiListState: Equatable, Sendable {
     case idle
     case scanning
@@ -178,6 +197,12 @@ enum WiFiListState: Equatable, Sendable {
     case noInterface
     case permissionDenied
     case failed
+    case resolvingCredentials
+    case needsPassword
+    case credentialAccessCancelled
+    case credentialAccessDenied
+    case credentialStoreLocked
+    case credentialReadFailed
     case connecting(WiFiNetworkIdentity)
     case connectionFailed
     case connectionTimedOut
@@ -187,6 +212,15 @@ enum WiFiListState: Equatable, Sendable {
     var isScanning: Bool {
         if case .scanning = self { return true }
         return false
+    }
+
+    var isConnectionFlow: Bool {
+        switch self {
+        case .resolvingCredentials, .needsPassword, .connecting:
+            true
+        default:
+            false
+        }
     }
 }
 
@@ -205,10 +239,59 @@ struct AsyncRequestGate: Sendable {
 
 enum BluetoothAvailability: Equatable, Sendable {
     case idle
+    case initializing
+    case authorizationNotDetermined
+    case authorizationDenied
+    case authorizationRestricted
     case available
     case poweredOff
     case unavailable
     case failed
+}
+
+enum BluetoothAuthorizationStatus: Equatable, Sendable {
+    case notDetermined
+    case allowed
+    case denied
+    case restricted
+}
+
+enum BluetoothManagerState: Equatable, Sendable {
+    case unknown
+    case resetting
+    case unsupported
+    case unauthorized
+    case poweredOff
+    case poweredOn
+}
+
+enum BluetoothAvailabilityMapper {
+    static func preliminary(
+        authorization: BluetoothAuthorizationStatus,
+        managerState: BluetoothManagerState
+    ) -> BluetoothAvailability {
+        switch authorization {
+        case .denied:
+            return .authorizationDenied
+        case .restricted:
+            return .authorizationRestricted
+        case .notDetermined:
+            return .authorizationNotDetermined
+        case .allowed:
+            switch managerState {
+            case .unknown, .resetting:
+                return .initializing
+            case .unsupported:
+                return .unavailable
+            case .unauthorized:
+                return .authorizationDenied
+            case .poweredOff:
+                return .poweredOff
+            case .poweredOn:
+                return .available
+            }
+        }
+    }
 }
 
 enum BluetoothDeviceKind: Equatable, Sendable {

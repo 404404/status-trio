@@ -110,8 +110,10 @@ private final class CoreWLANNetworkWorker: @unchecked Sendable {
 
             let deadline = Date().addingTimeInterval(12)
             while Date() < deadline {
-                if bssid(interface.bssid(), matches: targetBSSID) {
-                    return .success(makeDetails(interface: interface, actualNetwork: target))
+                if isAssociated(interface: interface, with: selected, targetBSSID: targetBSSID) {
+                    let actualNetwork = (try? interface.scanForNetworks(withSSID: selected.ssid.data(using: .utf8)))?
+                        .first { bssid($0.bssid, matches: interface.bssid()) }
+                    return .success(makeDetails(interface: interface, actualNetwork: actualNetwork ?? target))
                 }
                 Thread.sleep(forTimeInterval: 0.25)
             }
@@ -122,6 +124,29 @@ private final class CoreWLANNetworkWorker: @unchecked Sendable {
             // password. The UI presents an accurate generic failure instead.
             return .failed
         }
+    }
+
+    private func isAssociated(
+        interface: CWInterface,
+        with selected: WiFiNetwork,
+        targetBSSID: String
+    ) -> Bool {
+        if bssid(interface.bssid(), matches: targetBSSID) { return true }
+        guard interface.ssid() == selected.ssid else { return false }
+        return compatibleSecurity(
+            WiFiSecurityKind(coreWLANRawValue: interface.security().rawValue),
+            selected.security
+        )
+    }
+
+    private func compatibleSecurity(_ lhs: WiFiSecurityKind, _ rhs: WiFiSecurityKind) -> Bool {
+        guard lhs != .unknown, rhs != .unknown else { return false }
+        if lhs == rhs { return true }
+        let personalModes: Set<WiFiSecurityKind> = [
+            .wpaPersonal, .wpaPersonalMixed, .wpa2Personal, .personal,
+            .wpa3Personal, .wpa3Transition
+        ]
+        return personalModes.contains(lhs) && personalModes.contains(rhs)
     }
 
     private func securityKind(for network: CWNetwork) -> WiFiSecurityKind {
@@ -248,26 +273,55 @@ private final class CoreWLANNetworkWorker: @unchecked Sendable {
     }
 }
 
+private final class WiFiCredentialWorker: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "StatusTrio.WiFiCredentialWorker")
+    private let store: any WiFiCredentialStoring
+
+    init(store: any WiFiCredentialStoring) {
+        self.store = store
+    }
+
+    func resolve(
+        _ identity: WiFiNetworkIdentity,
+        completion: @escaping @Sendable (WiFiCredentialResult) -> Void
+    ) {
+        queue.async { [self] in
+            completion(store.resolveCredential(for: identity))
+        }
+    }
+
+    func save(
+        _ password: String,
+        for identity: WiFiNetworkIdentity,
+        completion: @escaping @Sendable (Bool) -> Void
+    ) {
+        queue.async { [self] in
+            completion(store.save(password, for: identity))
+        }
+    }
+}
+
+
 @MainActor
 final class WiFiNetworkController: ObservableObject {
     @Published private(set) var networks: [WiFiNetwork] = []
     @Published private(set) var details = WiFiConnectionDetails.unavailable
     @Published private(set) var state: WiFiListState = .idle
+    @Published private(set) var passwordPromptNetwork: WiFiNetwork?
+    @Published private(set) var credentialIssue: WiFiCredentialIssue?
 
-    private let worker: CoreWLANNetworkWorker
-    private let passwordStore: any WiFiPasswordStoring
-    private var requestGate = AsyncRequestGate()
+    private let worker = CoreWLANNetworkWorker()
+    private let credentialWorker: WiFiCredentialWorker
+    private var scanGate = AsyncRequestGate()
+    private var connectionGate = AsyncRequestGate()
+    private var pendingNetwork: WiFiNetwork?
     private var isActive = false
     private var periodicRefreshTask: Task<Void, Never>?
     private var lastNameAccess: WiFiNameAccess = .notDetermined
 
-    init(
-        passwordStore: any WiFiPasswordStoring = KeychainWiFiPasswordStore()
-    ) {
-        worker = CoreWLANNetworkWorker()
-        self.passwordStore = passwordStore
+    init(credentialStore: any WiFiCredentialStoring = KeychainWiFiPasswordStore()) {
+        credentialWorker = WiFiCredentialWorker(store: credentialStore)
     }
-
     deinit {
         periodicRefreshTask?.cancel()
     }
@@ -276,44 +330,50 @@ final class WiFiNetworkController: ObservableObject {
         lastNameAccess = nameAccess
         guard !isActive else { return }
         isActive = true
-        refresh()
         schedulePeriodicRefresh()
+        refresh()
     }
-
     func deactivate() {
+        guard isActive else { return }
         isActive = false
-         _ = requestGate.advance()
+        scanGate.advance()
+        connectionGate.advance()
         periodicRefreshTask?.cancel()
         periodicRefreshTask = nil
-        if case .connecting(_) = state {
+        pendingNetwork = nil
+        passwordPromptNetwork = nil
+        credentialIssue = nil
+        if state.isConnectionFlow {
             state = .idle
         }
     }
 
     func refresh(nameAccess: WiFiNameAccess? = nil) {
         if let nameAccess { lastNameAccess = nameAccess }
-        guard isActive, !state.isScanning else { return }
-        let requestGeneration = requestGate.advance()
+        guard isActive, !state.isScanning, !state.isConnectionFlow else { return }
+
+        let request = scanGate.advance()
         state = .scanning
         worker.scan { [weak self] result in
             Task { @MainActor [weak self] in
-                guard let self,
-                      self.isActive,
-                      self.requestGate.accepts(requestGeneration) else { return }
-                self.receive(result)
+                guard let self, self.isActive, self.scanGate.accepts(request), !self.state.isConnectionFlow else { return }
+                self.receiveScanResult(result)
             }
         }
     }
-
-    func setPower(_ isOn: Bool) {
+    func setPower(_ enabled: Bool) {
         guard isActive else { return }
-        let requestGeneration = requestGate.advance()
-        worker.setPower(isOn) { [weak self] changed in
+
+        scanGate.advance()
+        connectionGate.advance()
+        pendingNetwork = nil
+        passwordPromptNetwork = nil
+        credentialIssue = nil
+        worker.setPower(enabled) { [weak self] changed in
             Task { @MainActor [weak self] in
-                guard let self,
-                      self.isActive,
-                      self.requestGate.accepts(requestGeneration) else { return }
+                guard let self, self.isActive else { return }
                 if changed {
+                    self.state = .ready
                     self.refresh()
                 } else {
                     self.state = .failed
@@ -322,55 +382,159 @@ final class WiFiNetworkController: ObservableObject {
         }
     }
 
-    func connect(
-        to network: WiFiNetwork,
-        password: String?,
-        rememberPassword: Bool
-    ) {
-        guard isActive else { return }
-        guard !network.security.isEnterprise else {
+    func beginConnection(to network: WiFiNetwork) {
+        guard isActive, !state.isConnectionFlow else { return }
+
+        pendingNetwork = network
+        passwordPromptNetwork = nil
+        credentialIssue = nil
+
+        if network.security.isEnterprise {
             state = .enterpriseNetwork
             return
         }
-        let suppliedPassword = password?.isEmpty == false ? password : nil
-        let passwordToUse = suppliedPassword ?? passwordStore.password(for: network.identity)
-        guard !network.security.requiresPassword || passwordToUse != nil else {
-            state = .connectionFailed
+
+        guard network.security.requiresPassword else {
+            startAssociation(to: network, password: nil, suppliedPassword: nil, rememberPassword: false)
             return
         }
 
-        let requestGeneration = requestGate.advance()
-        state = .connecting(network.identity)
-        worker.associate(to: network, password: passwordToUse) { [weak self] result in
+        let request = connectionGate.advance()
+        state = .resolvingCredentials
+        credentialWorker.resolveCredential(for: network.identity) { [weak self] result in
             Task { @MainActor [weak self] in
-                guard let self,
-                      self.isActive,
-                      self.requestGate.accepts(requestGeneration) else { return }
-
-                switch result {
-                case .success(let details):
-                    self.details = details
-                    self.state = .ready
-                    if rememberPassword, let suppliedPassword {
-                        self.passwordStore.save(suppliedPassword, for: network.identity)
-                    }
-                    self.refresh()
-                case .networkUnavailable:
-                    self.state = .networkUnavailable
-                case .timedOut:
-                    self.state = .connectionTimedOut
-                case .failed:
-                    self.state = .connectionFailed
-                }
+                guard let self, self.isActive, self.connectionGate.accepts(request), self.pendingNetwork?.identity == network.identity else { return }
+                self.receiveCredentialResult(result, for: network)
             }
         }
     }
 
-    private func receive(_ result: WiFiScanWorkerResult) {
+    func connect(to network: WiFiNetwork, password: String?, rememberPassword: Bool) {
+        guard isActive else { return }
+
+        if network.security.requiresPassword {
+            guard let password, !password.isEmpty else {
+                pendingNetwork = network
+                passwordPromptNetwork = network
+                state = .needsPassword
+                return
+            }
+        }
+
+        pendingNetwork = network
+        passwordPromptNetwork = nil
+        credentialIssue = nil
+        startAssociation(
+            to: network,
+            password: password,
+            suppliedPassword: password,
+            rememberPassword: rememberPassword
+        )
+    }
+
+    func cancelPasswordEntry() {
+        guard state.isConnectionFlow || passwordPromptNetwork != nil else { return }
+        connectionGate.advance()
+        passwordPromptNetwork = nil
+        pendingNetwork = nil
+        credentialIssue = nil
+        state = .ready
+    }
+
+    func enterPasswordManually() {
+        guard let pendingNetwork else { return }
+        credentialIssue = nil
+        passwordPromptNetwork = pendingNetwork
+        state = .needsPassword
+    }
+
+    private func receiveCredentialResult(_ result: WiFiCredentialResult, for network: WiFiNetwork) {
         switch result {
-        case .success(let payload):
-            networks = payload.networks
+        case let .credential(password, _):
+            startAssociation(to: network, password: password, suppliedPassword: nil, rememberPassword: false)
+        case .noCredential:
+            passwordPromptNetwork = network
+            state = .needsPassword
+        case let .issue(issue):
+            credentialIssue = issue
+            switch issue {
+            case .cancelled:
+                state = .credentialAccessCancelled
+            case .accessDenied:
+                state = .credentialAccessDenied
+            case .keychainLocked:
+                state = .credentialStoreLocked
+            case .readFailed, .saveFailed:
+                state = .credentialReadFailed
+            }
+        }
+    }
+
+    private func startAssociation(
+        to network: WiFiNetwork,
+        password: String?,
+        suppliedPassword: String?,
+        rememberPassword: Bool
+    ) {
+        let request = connectionGate.advance()
+        passwordPromptNetwork = nil
+        state = .connecting(network.identity)
+
+        worker.associate(to: network, password: password) { [weak self] result in
+            Task { @MainActor [weak self] in
+                guard let self, self.isActive, self.connectionGate.accepts(request) else { return }
+                self.receiveAssociationResult(
+                    result,
+                    for: network,
+                    suppliedPassword: suppliedPassword,
+                    rememberPassword: rememberPassword,
+                    request: request
+                )
+            }
+        }
+    }
+
+    private func receiveAssociationResult(
+        _ result: WiFiAssociationWorkerResult,
+        for network: WiFiNetwork,
+        suppliedPassword: String?,
+        rememberPassword: Bool,
+        request: UInt64
+    ) {
+        switch result {
+        case let .success(connectionDetails):
+            self.details = connectionDetails
+            state = .ready
+            pendingNetwork = nil
+            credentialIssue = nil
+            if rememberPassword, let suppliedPassword {
+                credentialWorker.save(suppliedPassword, for: network.identity) { [weak self] saved in
+                    Task { @MainActor [weak self] in
+                        guard let self, self.connectionGate.accepts(request) else { return }
+                        if !saved {
+                            self.credentialIssue = .saveFailed
+                        }
+                    }
+                }
+            }
+            refresh()
+        case .networkUnavailable:
+            pendingNetwork = network
+            state = .networkUnavailable
+        case .timedOut:
+            pendingNetwork = network
+            state = .connectionTimedOut
+        case .failed:
+            pendingNetwork = network
+            state = .connectionFailed
+        }
+    }
+
+    private func receiveScanResult(_ result: WiFiScanWorkerResult) {
+        switch result {
+        case let .success(payload):
             details = payload.details
+            networks = payload.networks
             if payload.networks.isEmpty,
                lastNameAccess == .denied || lastNameAccess == .restricted {
                 state = .permissionDenied
@@ -378,16 +542,14 @@ final class WiFiNetworkController: ObservableObject {
                 state = .ready
             }
         case .poweredOff:
-            networks = []
             details = .unavailable
+            networks = []
             state = .poweredOff
         case .noInterface:
-            networks = []
             details = .unavailable
+            networks = []
             state = .noInterface
         case .failed:
-            // A failed scan is intentionally distinct from an empty successful
-            // result so a privacy/permission problem is never shown as "none".
             state = lastNameAccess == .denied || lastNameAccess == .restricted
                 ? .permissionDenied
                 : .failed
@@ -408,4 +570,5 @@ final class WiFiNetworkController: ObservableObject {
             }
         }
     }
+
 }

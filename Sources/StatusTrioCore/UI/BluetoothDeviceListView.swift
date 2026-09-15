@@ -42,8 +42,14 @@ struct BluetoothStatusView: View {
 
     private var summary: String {
         switch controller.availability {
-        case .idle:
-            return localization.string(.bluetoothUnavailable)
+        case .idle, .initializing:
+            return localization.string(.bluetoothInitializing)
+        case .authorizationNotDetermined:
+            return localization.string(.bluetoothAuthorizationNotDetermined)
+        case .authorizationDenied:
+            return localization.string(.bluetoothAuthorizationDenied)
+        case .authorizationRestricted:
+            return localization.string(.bluetoothAuthorizationRestricted)
         case .available:
             let devices = controller.connectedDevices
             if devices.isEmpty { return localization.string(.bluetoothNoConnectedDevices) }
@@ -85,11 +91,13 @@ struct BluetoothDeviceListView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
-                    if !groups.connected.isEmpty {
-                        section(localization.string(.bluetoothConnected), devices: groups.connected)
-                    }
-                    if !groups.disconnected.isEmpty {
-                        section(localization.string(.bluetoothNotConnected), devices: groups.disconnected)
+                    if controller.availability == .available {
+                        if !groups.connected.isEmpty {
+                            section(localization.string(.bluetoothConnected), devices: groups.connected)
+                        }
+                        if !groups.disconnected.isEmpty {
+                            section(localization.string(.bluetoothNotConnected), devices: groups.disconnected)
+                        }
                     }
                     message
                     Text(localization.string(.bluetoothPairedDeviceLimit))
@@ -132,8 +140,25 @@ struct BluetoothDeviceListView: View {
     @ViewBuilder
     private var message: some View {
         switch controller.availability {
-        case .idle:
-            ProgressView()
+        case .idle, .initializing:
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text(localization.string(.bluetoothInitializing))
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        case .authorizationNotDetermined:
+            Text(localization.string(.bluetoothAuthorizationNotDetermined))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .authorizationDenied:
+            Button(localization.string(.bluetoothAuthorizationDenied), action: onOpenBluetoothSettings)
+                .buttonStyle(.link)
+                .font(.caption)
+        case .authorizationRestricted:
+            Text(localization.string(.bluetoothAuthorizationRestricted))
+                .font(.caption)
+                .foregroundStyle(.secondary)
         case .available where controller.devices.isEmpty:
             Text(localization.string(.bluetoothNoDevices))
                 .font(.caption)

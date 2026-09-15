@@ -8,6 +8,7 @@ BUNDLE_ID="${BUNDLE_ID:-io.github.404404.StatusTrio}"
 APP_NAME="${APP_NAME:-Status Trio}"
 APP_VERSION="${APP_VERSION:-}"
 BUILD_NUMBER="${BUILD_NUMBER:-}"
+FORK_REVISION="${FORK_REVISION:-$(/usr/libexec/PlistBuddy -c "Print :StatusTrioForkRevision" "$ROOT/Support/Info.plist")}"
 SU_FEED_URL="${SU_FEED_URL:-}"
 UNIVERSAL_BUILD="${UNIVERSAL_BUILD:-0}"
 AUTOMATIC_UPDATES_ENABLED="${AUTOMATIC_UPDATES_ENABLED:-0}"
@@ -38,6 +39,11 @@ fi
 
 if [[ -n "$BUILD_NUMBER" && ! "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
     echo "Error: BUILD_NUMBER must contain only digits." >&2
+    exit 2
+fi
+
+if [[ ! "$FORK_REVISION" =~ ^[0-9]+$ || "$FORK_REVISION" == "0" ]]; then
+    echo "Error: FORK_REVISION must be a positive integer." >&2
     exit 2
 fi
 
@@ -138,6 +144,8 @@ fi
 if [[ -n "$BUILD_NUMBER" ]]; then
     /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$CONTENTS/Info.plist"
 fi
+
+/usr/libexec/PlistBuddy -c "Set :StatusTrioForkRevision $FORK_REVISION" "$CONTENTS/Info.plist"
 
 if [[ "$AUTOMATIC_UPDATES_ENABLED" == "1" ]]; then
     /usr/libexec/PlistBuddy -c "Set :StatusTrioEnableSparkle true" "$CONTENTS/Info.plist"

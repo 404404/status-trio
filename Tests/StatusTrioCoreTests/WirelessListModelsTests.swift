@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import StatusTrioCore
 
@@ -99,6 +100,106 @@ final class WirelessListModelsTests: XCTestCase {
         XCTAssertEqual(grouped.disconnected.map(\.name), ["Zebra"])
     }
 
+    func testWiFiCredentialFlowStatesRemainDistinct() {
+        XCTAssertTrue(WiFiListState.resolvingCredentials.isConnectionFlow)
+        XCTAssertTrue(WiFiListState.needsPassword.isConnectionFlow)
+        XCTAssertFalse(WiFiListState.credentialAccessCancelled.isConnectionFlow)
+        XCTAssertFalse(WiFiListState.credentialAccessDenied.isConnectionFlow)
+        XCTAssertFalse(WiFiListState.credentialStoreLocked.isConnectionFlow)
+        XCTAssertFalse(WiFiListState.credentialReadFailed.isConnectionFlow)
+        XCTAssertNotEqual(
+            WiFiCredentialResult.issue(.accessDenied),
+            WiFiCredentialResult.issue(.keychainLocked)
+        )
+    }
+
+    func testBluetoothAvailabilityMappingKeepsAuthorizationAndAdapterStatesDistinct() {
+        XCTAssertEqual(
+            BluetoothAvailabilityMapper.preliminary(authorization: .notDetermined, managerState: .unknown),
+            .authorizationNotDetermined
+        )
+        XCTAssertEqual(
+            BluetoothAvailabilityMapper.preliminary(authorization: .denied, managerState: .poweredOn),
+            .authorizationDenied
+        )
+        XCTAssertEqual(
+            BluetoothAvailabilityMapper.preliminary(authorization: .restricted, managerState: .poweredOn),
+            .authorizationRestricted
+        )
+        XCTAssertEqual(
+            BluetoothAvailabilityMapper.preliminary(authorization: .allowed, managerState: .resetting),
+            .initializing
+        )
+        XCTAssertEqual(
+            BluetoothAvailabilityMapper.preliminary(authorization: .allowed, managerState: .poweredOff),
+            .poweredOff
+        )
+        XCTAssertEqual(
+            BluetoothAvailabilityMapper.preliminary(authorization: .allowed, managerState: .unsupported),
+            .unavailable
+        )
+        XCTAssertEqual(
+            BluetoothAvailabilityMapper.preliminary(authorization: .allowed, managerState: .poweredOn),
+            .available
+        )
+    }
+
+    @MainActor
+    func testBluetoothControllerRefreshesPairedDevicesAcrossStateAndPanelLifecycle() async {
+        let reader = BluetoothReaderStub(result: .success([
+            BluetoothDevice(id: "connected", name: "Headphones", kind: .audio, isConnected: true),
+            BluetoothDevice(id: "paired", name: "Keyboard", kind: .peripheral, isConnected: false)
+        ]))
+        let monitor = BluetoothStateMonitorStub(
+            authorization: .allowed,
+            managerState: .poweredOn
+        )
+        let notifications = NotificationCenter()
+        let controller = BluetoothDeviceController(
+            worker: reader,
+            stateMonitor: monitor,
+            notificationCenter: notifications,
+            workspaceNotificationCenter: notifications
+        )
+
+        controller.activate()
+        await Task.yield()
+
+        XCTAssertEqual(controller.availability, .available)
+        XCTAssertEqual(controller.connectedDevices.map(\.id), ["connected"])
+        XCTAssertEqual(BluetoothDevicePresentation.grouped(controller.devices).disconnected.map(\.id), ["paired"])
+        XCTAssertEqual(reader.readCount, 1)
+        XCTAssertEqual(monitor.startCount, 1)
+
+        controller.activate()
+        XCTAssertEqual(monitor.startCount, 1)
+
+        monitor.emit(authorization: .allowed, managerState: .poweredOff)
+        XCTAssertEqual(controller.availability, .poweredOff)
+
+        monitor.emit(authorization: .allowed, managerState: .poweredOn)
+        await Task.yield()
+        XCTAssertEqual(controller.availability, .available)
+        XCTAssertEqual(reader.readCount, 2)
+
+        notifications.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        await Task.yield()
+        XCTAssertEqual(monitor.startCount, 2)
+        XCTAssertEqual(reader.readCount, 3)
+
+        controller.deactivate()
+        XCTAssertEqual(monitor.stopCount, 1)
+        notifications.post(name: NSWorkspace.didWakeNotification, object: nil)
+        await Task.yield()
+        XCTAssertEqual(monitor.startCount, 2)
+
+        controller.activate()
+        await Task.yield()
+        XCTAssertEqual(monitor.startCount, 3)
+        controller.deactivate()
+        XCTAssertEqual(monitor.stopCount, 2)
+    }
+
     private func makeDetails(rssi: Int?, noise: Int?) -> WiFiConnectionDetails {
         WiFiConnectionDetails(
             ssid: "Studio",
@@ -118,5 +219,48 @@ final class WirelessListModelsTests: XCTestCase {
             router: nil,
             dnsServers: []
         )
+    }
+}
+
+private final class BluetoothReaderStub: BluetoothPairedDeviceReading {
+    private let result: BluetoothWorkerResult
+    private(set) var readCount = 0
+
+    init(result: BluetoothWorkerResult) {
+        self.result = result
+    }
+
+    func read(completion: @escaping @Sendable (BluetoothWorkerResult) -> Void) {
+        readCount += 1
+        completion(result)
+    }
+}
+
+@MainActor
+private final class BluetoothStateMonitorStub: BluetoothStateMonitoring {
+    var onStateChange: ((BluetoothAuthorizationStatus, BluetoothManagerState) -> Void)?
+    private var authorization: BluetoothAuthorizationStatus
+    private var managerState: BluetoothManagerState
+    private(set) var startCount = 0
+    private(set) var stopCount = 0
+
+    init(authorization: BluetoothAuthorizationStatus, managerState: BluetoothManagerState) {
+        self.authorization = authorization
+        self.managerState = managerState
+    }
+
+    func start() {
+        startCount += 1
+        onStateChange?(authorization, managerState)
+    }
+
+    func stop() {
+        stopCount += 1
+    }
+
+    func emit(authorization: BluetoothAuthorizationStatus, managerState: BluetoothManagerState) {
+        self.authorization = authorization
+        self.managerState = managerState
+        onStateChange?(authorization, managerState)
     }
 }
