@@ -267,7 +267,6 @@ final class BluetoothDeviceController: ObservableObject {
     private func refreshAfterSystemEvent() {
         guard isActive else { return }
         stateMonitor.start()
-        refresh()
     }
 
     private func schedulePeriodicRefresh() {
