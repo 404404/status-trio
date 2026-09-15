@@ -22,12 +22,16 @@ protocol WiFiCredentialStoring: AnyObject {
 /// Keychain lookup is therefore attempted only after a click and its
 /// cancellation, denial, locked-keychain, and read errors remain distinct.
 final class KeychainWiFiPasswordStore: WiFiCredentialStoring, @unchecked Sendable {
-    private let appService = "io.github.404404.StatusTrio.wifi-password"
+    private let appService: String
     private let systemAirPortService = "AirPort network password"
+
+    init(appService: String = "io.github.404404.StatusTrio.wifi-password") {
+        self.appService = appService
+    }
 
     func resolveCredential(for identity: WiFiNetworkIdentity) -> WiFiCredentialResult {
         let appResult = read(
-            query: appQuery(for: identity, authenticationUI: kSecUseAuthenticationUIFail),
+            query: appReadQuery(for: identity),
             source: .appKeychain
         )
         switch appResult {
@@ -43,20 +47,21 @@ final class KeychainWiFiPasswordStore: WiFiCredentialStoring, @unchecked Sendabl
 
     func save(_ password: String, for identity: WiFiNetworkIdentity) -> Bool {
         guard !password.isEmpty else { return false }
-        let data = Data(password.utf8)
-        let query = appQuery(for: identity, authenticationUI: kSecUseAuthenticationUIFail)
-        let update = [kSecValueData as String: data]
-        let updateStatus = SecItemUpdate(query as CFDictionary, update as CFDictionary)
+        let update = [kSecValueData as String: Data(password.utf8)]
+        let updateStatus = SecItemUpdate(
+            appUpdateQuery(for: identity) as CFDictionary,
+            update as CFDictionary
+        )
         if updateStatus == errSecSuccess { return true }
         guard updateStatus == errSecItemNotFound else { return false }
 
-        var newItem = query
-        newItem[kSecValueData as String] = data
-        newItem[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        let addStatus = SecItemAdd(newItem as CFDictionary, nil)
+        let addStatus = SecItemAdd(appAddAttributes(password, for: identity) as CFDictionary, nil)
         if addStatus == errSecSuccess { return true }
         if addStatus == errSecDuplicateItem {
-            return SecItemUpdate(query as CFDictionary, update as CFDictionary) == errSecSuccess
+            return SecItemUpdate(
+                appUpdateQuery(for: identity) as CFDictionary,
+                update as CFDictionary
+            ) == errSecSuccess
         }
         return false
     }
@@ -88,20 +93,34 @@ final class KeychainWiFiPasswordStore: WiFiCredentialStoring, @unchecked Sendabl
         }
     }
 
-    private func appQuery(
-        for identity: WiFiNetworkIdentity,
-        authenticationUI: CFString
-    ) -> [String: Any] {
+    private func appIdentity(for identity: WiFiNetworkIdentity) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: appService,
-            // Delimiters preserve the raw SSID, including whitespace, and keep
-            // security classes distinct without writing credentials elsewhere.
-            kSecAttrAccount as String: "\(identity.security.rawValue):\(identity.ssid)",
-            kSecUseAuthenticationUI as String: authenticationUI,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecReturnData as String: true
+            // Preserve raw SSID whitespace and keep security classes distinct.
+            kSecAttrAccount as String: "\(identity.security.rawValue):\(identity.ssid)"
         ]
+    }
+
+    private func appReadQuery(for identity: WiFiNetworkIdentity) -> [String: Any] {
+        var query = appIdentity(for: identity)
+        // Copy-matching controls are valid only for the read operation.
+        query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        query[kSecReturnData as String] = true
+        return query
+    }
+
+    private func appUpdateQuery(for identity: WiFiNetworkIdentity) -> [String: Any] {
+        // SecItemUpdate receives only an item identity, never return controls.
+        appIdentity(for: identity)
+    }
+
+    private func appAddAttributes(_ password: String, for identity: WiFiNetworkIdentity) -> [String: Any] {
+        var attributes = appIdentity(for: identity)
+        attributes[kSecValueData as String] = Data(password.utf8)
+        attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        return attributes
     }
 
     private func systemAirPortQuery(for identity: WiFiNetworkIdentity) -> [String: Any] {

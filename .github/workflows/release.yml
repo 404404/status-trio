@@ -44,7 +44,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: macos-release-${{ github.ref }}
+  group: status-trio-${{ github.repository }}-${{ github.event_name == 'workflow_dispatch' && inputs.publish && 'publication' || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -316,6 +316,7 @@ jobs:
           path: |
             dist/*.dmg
             dist/*.dmg.sha256
+            dist/*.release-metadata.json
             dist/release.env
           if-no-files-found: ignore
 

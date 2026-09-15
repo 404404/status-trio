@@ -2,6 +2,59 @@ import CoreWLAN
 import Foundation
 import SystemConfiguration
 
+struct WiFiServiceNetworkConfiguration {
+    let ipv4Addresses: [String]
+    let ipv6Addresses: [String]
+    let router: String?
+    let dnsServers: [String]
+
+    static let unavailable = Self(ipv4Addresses: [], ipv6Addresses: [], router: nil, dnsServers: [])
+
+    static func resolve(interface: String, snapshot: [String: [String: Any]]) -> Self {
+        let prefix = "State:/Network/Service/"
+        let serviceIDs = Set(snapshot.keys.compactMap { key -> String? in
+            guard key.hasPrefix(prefix) else { return nil }
+            return key.dropFirst(prefix.count).split(separator: "/", maxSplits: 1).first.map(String.init)
+        })
+        let candidates = serviceIDs.filter { serviceID in
+            let base = prefix + serviceID
+            return string(snapshot[base + "/Interface"], key: "DeviceName") == interface
+                || string(snapshot[base + "/IPv4"], key: "InterfaceName") == interface
+                || string(snapshot[base + "/IPv6"], key: "InterfaceName") == interface
+        }
+        let primary = string(snapshot["State:/Network/Global/IPv4"], key: "PrimaryService")
+        let selected: String?
+        if candidates.count == 1 {
+            selected = candidates.first
+        } else if let primary, candidates.contains(primary) {
+            selected = primary
+        } else {
+            selected = nil
+        }
+        guard let selected else { return .unavailable }
+        let base = prefix + selected
+        let ipv4 = snapshot[base + "/IPv4"]
+        let ipv6 = snapshot[base + "/IPv6"]
+        let dns = snapshot[base + "/DNS"]
+        return Self(
+            ipv4Addresses: strings(ipv4, key: "Addresses"),
+            ipv6Addresses: strings(ipv6, key: "Addresses"),
+            router: string(ipv4, key: "Router"),
+            dnsServers: strings(dns, key: "ServerAddresses")
+        )
+    }
+
+    private static func string(_ dictionary: [String: Any]?, key: String) -> String? {
+        dictionary?[key] as? String
+    }
+
+    private static func strings(_ dictionary: [String: Any]?, key: String) -> [String] {
+        if let values = dictionary?[key] as? [String] { return values }
+        if let value = dictionary?[key] as? String { return [value] }
+        return []
+    }
+}
+
 private struct WiFiScanPayload: Sendable {
     let networks: [WiFiNetwork]
     let details: WiFiConnectionDetails
@@ -187,9 +240,7 @@ private final class CoreWLANNetworkWorker: @unchecked Sendable {
         actualNetwork: CWNetwork?
     ) -> WiFiConnectionDetails {
         let interfaceName = interface.interfaceName
-        let ipv4 = interfaceName.flatMap { networkConfiguration(interface: $0, family: "IPv4") } ?? [:]
-        let ipv6 = interfaceName.flatMap { networkConfiguration(interface: $0, family: "IPv6") } ?? [:]
-        let dns = interfaceName.flatMap { networkConfiguration(interface: $0, family: "DNS") } ?? [:]
+        let configuration = interfaceName.map(networkConfiguration(interface:)) ?? .unavailable
         let channel = interface.wlanChannel()
         let transmitRate = interface.transmitRate()
 
@@ -206,28 +257,25 @@ private final class CoreWLANNetworkWorker: @unchecked Sendable {
             security: WiFiSecurityKind(coreWLANRawValue: interface.security().rawValue),
             countryCode: actualNetwork?.countryCode,
             interfaceName: interfaceName,
-            ipv4Addresses: stringValues(in: ipv4, key: "Addresses"),
-            ipv6Addresses: stringValues(in: ipv6, key: "Addresses"),
-            router: stringValues(in: ipv4, key: "Router").first,
-            dnsServers: stringValues(in: dns, key: "ServerAddresses")
+            ipv4Addresses: configuration.ipv4Addresses,
+            ipv6Addresses: configuration.ipv6Addresses,
+            router: configuration.router,
+            dnsServers: configuration.dnsServers
         )
     }
 
-    private func networkConfiguration(interface: String, family: String) -> [String: Any] {
+    private func networkConfiguration(interface: String) -> WiFiServiceNetworkConfiguration {
         guard let store = SCDynamicStoreCreate(nil, "StatusTrio" as CFString, nil, nil),
-              let value = SCDynamicStoreCopyValue(
-                store,
-                "State:/Network/Interface/\(interface)/\(family)" as CFString
-              ) as? [String: Any] else {
-            return [:]
+              let keys = SCDynamicStoreCopyKeyList(store, "State:/Network/.*" as CFString) as? [String] else {
+            return .unavailable
         }
-        return value
-    }
-
-    private func stringValues(in dictionary: [String: Any], key: String) -> [String] {
-        if let values = dictionary[key] as? [String] { return values }
-        if let value = dictionary[key] as? String { return [value] }
-        return []
+        var snapshot: [String: [String: Any]] = [:]
+        for key in keys where key == "State:/Network/Global/IPv4" || key.hasPrefix("State:/Network/Service/") {
+            if let value = SCDynamicStoreCopyValue(store, key as CFString) as? [String: Any] {
+                snapshot[key] = value
+            }
+        }
+        return WiFiServiceNetworkConfiguration.resolve(interface: interface, snapshot: snapshot)
     }
 
     private func normalizedMeasurement(_ value: Int) -> Int? {
