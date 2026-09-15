@@ -28,7 +28,6 @@ struct WiFiStatusView: View {
                 }
                 .contentShape(Rectangle())
             }
-            }
             .buttonStyle(.plain)
             .accessibilityLabel(wifiAccessibilityLabel)
 
