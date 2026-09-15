@@ -78,7 +78,7 @@ final class IOBluetoothPairedDeviceWorker: @unchecked Sendable, BluetoothPairedD
 /// lifecycle. IOBluetooth is intentionally not treated as an authorization
 /// authority; it is used only for the paired-device database above.
 @MainActor
-final class CoreBluetoothStateMonitor: NSObject, CBCentralManagerDelegate, BluetoothStateMonitoring {
+final class CoreBluetoothStateMonitor: NSObject, @preconcurrency CBCentralManagerDelegate, BluetoothStateMonitoring {
     var onStateChange: ((BluetoothAuthorizationStatus, BluetoothManagerState) -> Void)?
     private var centralManager: CBCentralManager?
 
@@ -163,8 +163,14 @@ final class BluetoothDeviceController: ObservableObject {
 
     deinit {
         periodicRefreshTask?.cancel()
-        removeSystemObservers()
+        if let applicationObserver {
+            notificationCenter.removeObserver(applicationObserver)
+        }
+        if let wakeObserver {
+            workspaceNotificationCenter.removeObserver(wakeObserver)
+        }
     }
+
 
     var connectedDevices: [BluetoothDevice] {
         BluetoothDevicePresentation.grouped(devices).connected
@@ -180,7 +186,7 @@ final class BluetoothDeviceController: ObservableObject {
     func deactivate() {
         guard isActive else { return }
         isActive = false
-        requestGate.advance()
+        _ = requestGate.advance()
         periodicRefreshTask?.cancel()
         periodicRefreshTask = nil
         removeSystemObservers()
@@ -226,7 +232,7 @@ final class BluetoothDeviceController: ObservableObject {
             schedulePeriodicRefresh()
             refresh()
         } else {
-            requestGate.advance()
+            _ = requestGate.advance()
             stopPeriodicRefresh()
         }
     }

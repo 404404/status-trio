@@ -336,8 +336,8 @@ final class WiFiNetworkController: ObservableObject {
     func deactivate() {
         guard isActive else { return }
         isActive = false
-        scanGate.advance()
-        connectionGate.advance()
+        _ = scanGate.advance()
+        _ = connectionGate.advance()
         periodicRefreshTask?.cancel()
         periodicRefreshTask = nil
         pendingNetwork = nil
@@ -364,8 +364,8 @@ final class WiFiNetworkController: ObservableObject {
     func setPower(_ enabled: Bool) {
         guard isActive else { return }
 
-        scanGate.advance()
-        connectionGate.advance()
+        _ = scanGate.advance()
+        _ = connectionGate.advance()
         pendingNetwork = nil
         passwordPromptNetwork = nil
         credentialIssue = nil
@@ -401,7 +401,7 @@ final class WiFiNetworkController: ObservableObject {
 
         let request = connectionGate.advance()
         state = .resolvingCredentials
-        credentialWorker.resolveCredential(for: network.identity) { [weak self] result in
+        credentialWorker.resolve(network.identity) { [weak self] result in
             Task { @MainActor [weak self] in
                 guard let self, self.isActive, self.connectionGate.accepts(request), self.pendingNetwork?.identity == network.identity else { return }
                 self.receiveCredentialResult(result, for: network)
@@ -434,7 +434,7 @@ final class WiFiNetworkController: ObservableObject {
 
     func cancelPasswordEntry() {
         guard state.isConnectionFlow || passwordPromptNetwork != nil else { return }
-        connectionGate.advance()
+        _ = connectionGate.advance()
         passwordPromptNetwork = nil
         pendingNetwork = nil
         credentialIssue = nil
