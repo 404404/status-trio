@@ -2,12 +2,23 @@
 
 本 fork 的默认发布模式是 **GitHub Release only**：macOS runner 使用 Xcode 16.4 / Swift 6.1.2 构建通用 `arm64 + x86_64` 应用，上传 DMG 和 SHA-256 文件到 [404404/status-trio Releases](https://github.com/404404/status-trio/releases)。默认不会生成、签名或发布 Sparkle appcast，也不会把上游更新源写入应用。
 
+## 版本规则
+
+每次发布由三个独立字段确定：
+
+- `version`：采用的上游正式应用版本，写入纯数字 `CFBundleShortVersionString`。
+- `fork_revision`：同一上游版本下递增的正整数，写入 `StatusTrioForkRevision`。
+- `build`：单调递增的纯数字 `CFBundleVersion`。
+
+例如，`version=1.0.4`、`fork_revision=1`、`build=7` 对应 tag `v1.0.4-fork.1`、标题 `Status Trio 1.0.4 — Fork 1` 和 DMG `StatusTrio-1.0.4-fork.1.dmg`。工作流会拒绝与已检出 `Support/Info.plist` 不一致的输入，因此预检和正式发布必定构建同一版本参数。工作流仅由 PR 或手动 dispatch 触发，不监听 tag，创建正式 Release tag 不会启动第二个发布。
+
 ## 预检
 
 在 Actions 页面运行 **Build and Release macOS**，指定：
 
-- `version=1.1.0`
-- `build=6`
+- `version=1.0.4`
+- `fork_revision=1`
+- `build=7`
 - `publish=false`
 - `publish_appcast=false`
 
@@ -15,15 +26,15 @@
 
 ## 正式 GitHub Release
 
-预检通过并且待发布提交已在 `main` 后，手动运行同一工作流：
+预检通过且提交合并进 `main` 后，手动运行同一工作流：
 
-- `version` 和 `build`：显式递增；不能覆盖既有 tag 或 Release。
+- `version`、`fork_revision` 和 `build` 必须与 `Support/Info.plist` 完全一致；不能覆盖既有 tag 或 Release。
 - `publish=true`
 - `publish_appcast=false`
 - `release_notes`：英文说明，每行一个项目。
 - `release_notes_zh`：中文说明，每行一个项目。
 
-Release notes 会使用 `# Version X.Y.Z （English + 中文， 中文在下方）` 标题，英文在前、中文在后，并附带首次启动命令。发布脚本会拒绝复用已有 tag，并以本次构建的 commit SHA 创建 tag。
+Release notes 使用 `# Version X.Y.Z （English + 中文， 中文在下方）` 标题，随后明确列出上游版本、fork 修订号和构建号。发布脚本会拒绝复用已有 tag，以本次构建 commit SHA 创建 tag，并显式将该 Release 标记为 Latest。带 fork 后缀的 tag 不会自动成为 prerelease。
 
 DMG 是 Ad-hoc 签名，除非仓库额外配置 Developer ID 证书和公证凭据。`codesign --verify` 通过不等同于 Gatekeeper 或 Apple 公证通过。首次手动安装时，如 macOS 阻止启动：
 

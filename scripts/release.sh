@@ -25,8 +25,9 @@ DMG_BASENAME="$(read_config dmg_name)"
 DMG_BASENAME="${DMG_BASENAME%.dmg}"
 SPARKLE_ENABLED_DEFAULT="$(read_config sparkle_enabled)"
 VERSION="${VERSION:-$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Support/Info.plist)}"
+FORK_REVISION="${FORK_REVISION:-$(/usr/libexec/PlistBuddy -c 'Print :StatusTrioForkRevision' Support/Info.plist)}"
 BUILD="${BUILD:-$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' Support/Info.plist)}"
-TAG="${TAG:-v$VERSION}"
+TAG="${TAG:-v$VERSION-fork.$FORK_REVISION}"
 PUBLISH="${PUBLISH:-true}"
 PUBLISH_APPCAST="${PUBLISH_APPCAST:-$SPARKLE_ENABLED_DEFAULT}"
 UNIVERSAL_BUILD="${UNIVERSAL_BUILD:-1}"
@@ -40,7 +41,10 @@ SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-}"
 SU_FEED_URL="${SU_FEED_URL:-}"
 
 [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]] || { echo "Error: VERSION must contain dot-separated numbers." >&2; exit 2; }
+[[ "$FORK_REVISION" =~ ^[0-9]+$ && "$FORK_REVISION" != "0" ]] || { echo "Error: FORK_REVISION must be a positive integer." >&2; exit 2; }
 [[ "$BUILD" =~ ^[0-9]+$ ]] || { echo "Error: BUILD must contain only digits." >&2; exit 2; }
+EXPECTED_TAG="v${VERSION}-fork.${FORK_REVISION}"
+[[ "$TAG" == "$EXPECTED_TAG" ]] || { echo "Error: TAG must be $EXPECTED_TAG." >&2; exit 2; }
 case "$PUBLISH" in true|false) ;; *) echo "Error: PUBLISH must be true or false." >&2; exit 2 ;; esac
 case "$PUBLISH_APPCAST" in true|false) ;; *) echo "Error: PUBLISH_APPCAST must be true or false." >&2; exit 2 ;; esac
 case "$UNIVERSAL_BUILD" in 0|1) ;; *) echo "Error: UNIVERSAL_BUILD must be 0 or 1." >&2; exit 2 ;; esac
@@ -75,7 +79,7 @@ if [[ "$PUBLISH_APPCAST" == "true" ]]; then
     ruby -e 'build = ARGV[0].to_i; max = File.read(ARGV[1]).scan(%r{<sparkle:version>\s*(\d+)\s*</sparkle:version>}).flatten.map(&:to_i).max || 0; abort("Error: build must exceed the latest Sparkle build.") unless build > max' "$BUILD" "$APPCAST_PATH"
 fi
 
-if [[ -z "${RELEASE_NOTES_FILE:-}" ]]; then RELEASE_NOTES_FILE="$TEMP_ROOT/release-notes.md"; printf "%s\n" "- Release v$VERSION." > "$RELEASE_NOTES_FILE"; fi
+if [[ -z "${RELEASE_NOTES_FILE:-}" ]]; then RELEASE_NOTES_FILE="$TEMP_ROOT/release-notes.md"; printf "%s\n" "- Release v$VERSION-fork.$FORK_REVISION." > "$RELEASE_NOTES_FILE"; fi
 RELEASE_BODY_FILE="${RELEASE_BODY_FILE:-$RELEASE_NOTES_FILE}"
 [[ -f "$RELEASE_NOTES_FILE" && -f "$RELEASE_BODY_FILE" ]] || { echo "Error: release notes file does not exist." >&2; exit 1; }
 if [[ "$PUBLISH_APPCAST" == "true" ]]; then
@@ -88,13 +92,13 @@ fi
 
 mkdir -p "$OUTPUT_DIR"
 echo "Building $APP_NAME $VERSION ($BUILD) for $RELEASE_REPO..."
-env -u GH_TOKEN -u SPARKLE_PRIVATE_KEY APP_VERSION="$VERSION" BUILD_NUMBER="$BUILD" SU_FEED_URL="$SU_FEED_URL" SPARKLE_PUBLIC_KEY="$SPARKLE_PUBLIC_KEY" AUTOMATIC_UPDATES_ENABLED="$UPDATE_MODE" UNIVERSAL_BUILD="$UNIVERSAL_BUILD" BUNDLE_ID="$BUNDLE_ID" APP_NAME="$APP_NAME" CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY" KEYCHAIN_PATH="$KEYCHAIN_PATH" bash "$ROOT/scripts/build-app.sh" release no-open
+env -u GH_TOKEN -u SPARKLE_PRIVATE_KEY APP_VERSION="$VERSION" FORK_REVISION="$FORK_REVISION" BUILD_NUMBER="$BUILD" SU_FEED_URL="$SU_FEED_URL" SPARKLE_PUBLIC_KEY="$SPARKLE_PUBLIC_KEY" AUTOMATIC_UPDATES_ENABLED="$UPDATE_MODE" UNIVERSAL_BUILD="$UNIVERSAL_BUILD" BUNDLE_ID="$BUNDLE_ID" APP_NAME="$APP_NAME" CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY" KEYCHAIN_PATH="$KEYCHAIN_PATH" bash "$ROOT/scripts/build-app.sh" release no-open
 
 STAGING_DIR="$TEMP_ROOT/dmg"
 mkdir -p "$STAGING_DIR"
 ditto "$ROOT/dist/StatusTrio.app" "$STAGING_DIR/$APP_NAME.app"
 ln -s /Applications "$STAGING_DIR/Applications"
-DMG_PATH="$OUTPUT_DIR/$DMG_BASENAME-$VERSION.dmg"
+DMG_PATH="$OUTPUT_DIR/$DMG_BASENAME-$VERSION-fork.$FORK_REVISION.dmg"
 rm -f "$DMG_PATH" "$DMG_PATH.sha256"
 hdiutil create -quiet -volname "$APP_NAME" -srcfolder "$STAGING_DIR" -ov -format UDZO "$DMG_PATH"
 hdiutil verify "$DMG_PATH"
@@ -129,6 +133,7 @@ DMG_FILENAME="$(basename "$DMG_PATH")"
 DMG_URL="https://github.com/$RELEASE_REPO/releases/download/$TAG/$DMG_FILENAME"
 {
     printf "VERSION=%q\n" "$VERSION"
+    printf "FORK_REVISION=%q\n" "$FORK_REVISION"
     printf "BUILD=%q\n" "$BUILD"
     printf "TAG=%q\n" "$TAG"
     printf "RELEASE_TARGET=%q\n" "$RELEASE_TARGET"
@@ -147,7 +152,7 @@ if [[ "$PUBLISH" == "false" ]]; then echo "Built $DMG_PATH without publishing (S
 if gh release view "$TAG" --repo "$RELEASE_REPO" >/dev/null 2>&1; then echo "Error: GitHub Release $TAG already exists." >&2; exit 1; fi
 if gh api "repos/$RELEASE_REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then echo "Error: Git tag $TAG already exists; refusing to reuse or move it." >&2; exit 1; fi
 
-gh release create "$TAG" "$DMG_PATH" "$DMG_PATH.sha256" --repo "$RELEASE_REPO" --target "$RELEASE_TARGET" --title "$APP_NAME v$VERSION" --notes-file "$RELEASE_BODY_FILE"
+gh release create "$TAG" "$DMG_PATH" "$DMG_PATH.sha256" --repo "$RELEASE_REPO" --target "$RELEASE_TARGET" --title "$APP_NAME $VERSION — Fork $FORK_REVISION" --latest --notes-file "$RELEASE_BODY_FILE"
 PUBLISHED_TAG_SHA="$(gh api "repos/$RELEASE_REPO/git/ref/tags/$TAG" --jq .object.sha)"
 [[ "$PUBLISHED_TAG_SHA" == "$RELEASE_TARGET" ]] || { echo "Error: release tag does not point to the built commit." >&2; exit 1; }
 

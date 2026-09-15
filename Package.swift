@@ -26,6 +26,7 @@ let package = Package(
                 .linkedFramework("CoreWLAN"),
                 .linkedFramework("CoreLocation"),
                 .linkedFramework("CoreAudio"),
+                .linkedFramework("CoreBluetooth"),
                 .linkedFramework("IOBluetooth"),
                 .linkedFramework("Network"),
                 .linkedFramework("Security"),

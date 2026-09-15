@@ -177,3 +177,16 @@
 "bluetooth.connected" = "Connected";
 "bluetooth.notConnected" = "Not Connected";
 "bluetooth.pairedDeviceLimit" = "Shows paired devices reported by macOS. Some BLE-only devices may not be listed.";
+
+"wifi.credentialsChecking" = "Checking saved credentials…";
+"wifi.credentialAccessCancelled" = "Saved-credential access was cancelled.";
+"wifi.credentialAccessDenied" = "Saved-credential access was denied.";
+"wifi.credentialStoreLocked" = "The Keychain is locked or unavailable.";
+"wifi.credentialReadFailed" = "Saved credentials could not be read.";
+"wifi.credentialEnterPassword" = "Enter Password";
+"wifi.passwordSaveFailed" = "Connected, but the password could not be saved.";
+
+"bluetooth.initializing" = "Initializing Bluetooth…";
+"bluetooth.authorizationNotDetermined" = "Bluetooth permission has not been decided yet.";
+"bluetooth.authorizationDenied" = "Bluetooth permission is denied. Open Bluetooth Settings.";
+"bluetooth.authorizationRestricted" = "Bluetooth permission is restricted.";
