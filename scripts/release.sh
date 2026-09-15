@@ -131,7 +131,7 @@ fi
 
 DMG_FILENAME="$(basename "$DMG_PATH")"
 (cd "$OUTPUT_DIR" && shasum -a 256 "$DMG_FILENAME" > "$DMG_FILENAME.sha256")
-APP_PLIST="$ROOT/dist/$APP_NAME.app/Contents/Info.plist"
+APP_PLIST="$ROOT/dist/StatusTrio.app/Contents/Info.plist"
 ACTUAL_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PLIST")"
 ACTUAL_VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PLIST")"
 ACTUAL_BUILD="$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_PLIST")"
