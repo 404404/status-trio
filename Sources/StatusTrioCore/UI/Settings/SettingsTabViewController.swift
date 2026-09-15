@@ -45,7 +45,7 @@ final class SettingsTabViewController: NSTabViewController {
     }
 
     func applyLocalization(_ language: AppLanguage) {
-        for tab in SettingsTab.allCases {
+        for tab in SettingsTab.visibleCases {
             guard let item = tabViewItems.first(where: {
                 ($0.identifier as? String) == tab.rawValue
             }) else {
@@ -75,7 +75,7 @@ final class SettingsTabViewController: NSTabViewController {
     }
 
     private func buildTabs() {
-        for tab in SettingsTab.allCases {
+        for tab in SettingsTab.visibleCases {
             let viewController = SettingsVisualEffectViewController(
                 localization: localization
             ) {

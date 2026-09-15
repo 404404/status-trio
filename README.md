@@ -47,7 +47,7 @@ Status Trio is a native macOS menubar app that combines Wi-Fi, battery, and volu
 ## Run from source
 
 ```bash
-git clone https://github.com/lingyired/status-trio.git
+git clone https://github.com/404404/status-trio.git
 cd status-trio
 swift run StatusTrio
 ```
@@ -70,7 +70,7 @@ The ad-hoc-signed bundle is intended for local personal use. Gatekeeper may reje
 
 ## Install a GitHub Release
 
-Download the latest `StatusTrio-*.dmg` from the [GitHub Releases page](https://github.com/lingyired/status-trio/releases), open it, and copy `Status Trio.app` into `/Applications`.
+Download the latest `StatusTrio-*.dmg` from the [GitHub Releases page](https://github.com/404404/status-trio/releases), open it, and copy `Status Trio.app` into `/Applications`.
 
 The current public build is ad-hoc signed but is not notarized by Apple. macOS may show this warning on first launch:
 
@@ -87,7 +87,7 @@ open "/Applications/Status Trio.app"
 
 Alternatively, try to open the app once, then go to **System Settings → Privacy & Security** and choose **Open Anyway**.
 
-Do not disable Gatekeeper globally. Subsequent Sparkle updates are authenticated with the app's EdDSA signing key; the `xattr` command is normally needed only for the first manual installation.
+Do not disable Gatekeeper globally. This fork currently ships GitHub Releases only; Sparkle automatic updates are disabled until the fork is configured with its own matching signing key pair.
 
 ## Usage
 
@@ -127,7 +127,7 @@ bash scripts/build-worktree.sh release
 The helper derives a development bundle identifier and display name from the current branch. Both values can be overridden:
 
 ```bash
-BUNDLE_ID=com.lingsmbp.StatusTrio.dev.settings-redesign \
+BUNDLE_ID=io.github.404404.StatusTrio.dev.settings-redesign \
 APP_NAME="Status Trio (Settings Redesign)" \
 bash scripts/build-worktree.sh release
 ```

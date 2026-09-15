@@ -7,26 +7,38 @@ import SwiftUI
 final class UpdaterManager: NSObject, ObservableObject, SPUUpdaterDelegate {
     static let shared = UpdaterManager()
 
+    /// Release-only fork builds set this key to false while they do not have a
+    /// Sparkle key pair. A missing key keeps source/test builds usable.
+    nonisolated static var isEnabled: Bool {
+        (Bundle.main.object(forInfoDictionaryKey: "StatusTrioEnableSparkle") as? Bool) ?? true
+    }
+
     @Published private(set) var canCheckForUpdates = false
     @Published private(set) var automaticallyChecksForUpdates = false
 
-    private lazy var controller = SPUStandardUpdaterController(
-        startingUpdater: false,
-        updaterDelegate: self,
-        userDriverDelegate: nil
-    )
+    private var controller: SPUStandardUpdaterController?
     private var isShowingManualUpdateUI = false
 
     var automaticallyChecksForUpdatesBinding: Binding<Bool> {
         Binding(
             get: { self.automaticallyChecksForUpdates },
-            set: { self.controller.updater.automaticallyChecksForUpdates = $0 }
+            set: { enabled in
+                guard let controller = self.controller else { return }
+                controller.updater.automaticallyChecksForUpdates = enabled
+            }
         )
     }
 
     private override init() {
         super.init()
+        guard Self.isEnabled else { return }
 
+        let controller = SPUStandardUpdaterController(
+            startingUpdater: false,
+            updaterDelegate: self,
+            userDriverDelegate: nil
+        )
+        self.controller = controller
         controller.updater.publisher(for: \.canCheckForUpdates)
             .assign(to: &$canCheckForUpdates)
         controller.updater.publisher(for: \.automaticallyChecksForUpdates)
@@ -37,6 +49,7 @@ final class UpdaterManager: NSObject, ObservableObject, SPUUpdaterDelegate {
         #if DEBUG
         return
         #else
+        guard Self.isEnabled, let controller else { return }
         controller.startUpdater()
         #endif
     }
@@ -45,7 +58,7 @@ final class UpdaterManager: NSObject, ObservableObject, SPUUpdaterDelegate {
         #if DEBUG
         return
         #else
-        guard canCheckForUpdates else { return }
+        guard Self.isEnabled, let controller, canCheckForUpdates else { return }
 
         isShowingManualUpdateUI = true
         NSApp.setActivationPolicy(.regular)

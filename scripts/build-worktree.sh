@@ -15,7 +15,7 @@ if [[ -z "$SUFFIX" ]]; then
     SUFFIX="worktree"
 fi
 
-DEFAULT_BUNDLE_ID="com.lingsmbp.StatusTrio.dev.$SUFFIX"
+DEFAULT_BUNDLE_ID="io.github.404404.StatusTrio.dev.$SUFFIX"
 DISPLAY_NAME="$(
     printf '%s' "$SUFFIX"         | tr '-' ' '         | awk '{ for (i = 1; i <= NF; i++) $i = toupper(substr($i, 1, 1)) substr($i, 2) } 1'
 )"

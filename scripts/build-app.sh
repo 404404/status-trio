@@ -4,12 +4,14 @@ set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIGURATION="${1:-release}"
 OPEN_APP="${2:-open}"
-BUNDLE_ID="${BUNDLE_ID:-com.lingsmbp.StatusTrio}"
+BUNDLE_ID="${BUNDLE_ID:-io.github.404404.StatusTrio}"
 APP_NAME="${APP_NAME:-Status Trio}"
 APP_VERSION="${APP_VERSION:-}"
 BUILD_NUMBER="${BUILD_NUMBER:-}"
 SU_FEED_URL="${SU_FEED_URL:-}"
 UNIVERSAL_BUILD="${UNIVERSAL_BUILD:-0}"
+AUTOMATIC_UPDATES_ENABLED="${AUTOMATIC_UPDATES_ENABLED:-0}"
+SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-}"
 
 case "$OPEN_APP" in
     open|no-open) ;;
@@ -51,6 +53,19 @@ case "$UNIVERSAL_BUILD" in
         exit 2
         ;;
 esac
+
+case "$AUTOMATIC_UPDATES_ENABLED" in
+    0|1) ;;
+    *)
+        echo "Error: AUTOMATIC_UPDATES_ENABLED must be 0 or 1." >&2
+        exit 2
+        ;;
+esac
+
+if [[ "$AUTOMATIC_UPDATES_ENABLED" == "1" && ( -z "$SU_FEED_URL" || -z "$SPARKLE_PUBLIC_KEY" ) ]]; then
+    echo "Error: Sparkle builds require SU_FEED_URL and SPARKLE_PUBLIC_KEY." >&2
+    exit 2
+fi
 
 cd "$ROOT"
 
@@ -124,8 +139,14 @@ if [[ -n "$BUILD_NUMBER" ]]; then
     /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$CONTENTS/Info.plist"
 fi
 
-if [[ -n "$SU_FEED_URL" ]]; then
-    /usr/libexec/PlistBuddy -c "Set :SUFeedURL $SU_FEED_URL" "$CONTENTS/Info.plist"
+if [[ "$AUTOMATIC_UPDATES_ENABLED" == "1" ]]; then
+    /usr/libexec/PlistBuddy -c "Set :StatusTrioEnableSparkle true" "$CONTENTS/Info.plist"
+    /usr/libexec/PlistBuddy -c "Add :SUFeedURL string $SU_FEED_URL" "$CONTENTS/Info.plist"
+    /usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $SPARKLE_PUBLIC_KEY" "$CONTENTS/Info.plist"
+else
+    /usr/libexec/PlistBuddy -c "Set :StatusTrioEnableSparkle false" "$CONTENTS/Info.plist"
+    /usr/libexec/PlistBuddy -c "Delete :SUFeedURL" "$CONTENTS/Info.plist" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Delete :SUPublicEDKey" "$CONTENTS/Info.plist" 2>/dev/null || true
 fi
 INFO_PLIST_COUNT="$(find "$ROOT/Sources/StatusTrioCore/Resources" -name 'InfoPlist.strings' -type f | wc -l | tr -d ' ')"
 if [[ "$INFO_PLIST_COUNT" -ne 12 ]]; then
@@ -168,6 +189,47 @@ fi
 codesign "${SIGNING_ARGS[@]}" "$CONTENTS/Frameworks/Sparkle.framework"
 codesign "${SIGNING_ARGS[@]}" "$APP_DIR"
 codesign --verify --deep --strict --verbose=2 "$APP_DIR"
+
+plutil -lint "$CONTENTS/Info.plist"
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$CONTENTS/Info.plist")" == "$BUNDLE_ID" ]] || {
+    echo "Error: packaged CFBundleIdentifier does not match the requested bundle identifier." >&2
+    exit 1
+}
+[[ -f "$CONTENTS/Resources/AppIcon.icns" ]] || { echo "Error: packaged app icon is missing." >&2; exit 1; }
+[[ -d "$CONTENTS/Resources/StatusTrio_StatusTrioCore.bundle" ]] || { echo "Error: packaged resource bundle is missing." >&2; exit 1; }
+
+if [[ "$UNIVERSAL_BUILD" == "1" ]]; then
+    verify_universal_binary() {
+        local binary="$1"
+        local architectures
+        architectures="$(lipo -archs "$binary")"
+        if [[ "$architectures" != *"arm64"* || "$architectures" != *"x86_64"* ]]; then
+            echo "Error: expected universal arm64+x86_64 binary: $binary ($architectures)" >&2
+            exit 1
+        fi
+    }
+
+    verify_universal_binary "$CONTENTS/MacOS/StatusTrio"
+    while IFS= read -r binary; do
+        if file "$binary" | grep -q 'Mach-O'; then
+            verify_universal_binary "$binary"
+        fi
+    done < <(find "$CONTENTS/Frameworks" -type f -perm -111)
+fi
+
+if [[ "$UNIVERSAL_BUILD" == "1" ]]; then
+    DYNAMIC_LIBRARY_ENTRIES="$(
+        for architecture in arm64 x86_64; do
+            otool -arch "$architecture" -L "$CONTENTS/MacOS/StatusTrio" | tail -n +2
+        done
+    )"
+else
+    DYNAMIC_LIBRARY_ENTRIES="$(otool -L "$CONTENTS/MacOS/StatusTrio" | tail -n +2)"
+fi
+if printf '%s\n' "$DYNAMIC_LIBRARY_ENTRIES" | grep -Eq '(/Users/|/private/var/)'; then
+    echo "Error: packaged executable contains a developer-machine dynamic-library reference." >&2
+    exit 1
+fi
 
 echo "Built $APP_DIR (bundle id: $BUNDLE_ID)"
 

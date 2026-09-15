@@ -1,69 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
-    <title>Status Trio</title>
-    <link>https://github.com/lingyired/status-trio</link>
-    <description>Most recent changes for Status Trio.</description>
+    <title>Status Trio (fork updates disabled)</title>
+    <link>https://github.com/404404/status-trio</link>
+    <description>Sparkle updates are disabled until this fork has its own EdDSA key pair and signed appcast configuration.</description>
     <language>en</language>
-    <item>
-      <title>Version 1.0.4 (Build 5) （English + 中文， 中文在下方）</title>
-      <pubDate>Mon, 14 Sep 2026 15:53:48 +0000</pubDate>
-      <sparkle:version>5</sparkle:version>
-      <sparkle:shortVersionString>1.0.4</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<h2>English</h2><ul><li>Reduce sustained menu bar CPU and memory usage by coalescing monitor updates and rendering only when the visible status changes.</li><li>Add a configurable status refresh interval from 5 to 60 seconds, with a 5-second default.</li><li>Add drag-and-drop ordering for the Battery, Network, and Volume sections in the popup.</li><li>Rename the popup’s Wi-Fi section to Network to better reflect hotspot, tethered, and shared connections.</li><li>Move Launch at Login to the top of the Basics settings pane.</li><li>Load detailed Wi-Fi and audio information only while the popup is open, and release hidden popover and settings views when closed.</li><li>Correct the icon size description to match the supported 16–36 pt range.</li></ul><h2>中文</h2><ul><li>优化菜单栏持续运行时的 CPU 与内存占用，减少不必要的状态刷新和界面重绘。</li><li>新增状态刷新间隔设置，可在 5–60 秒之间调整，默认 5 秒。</li><li>支持拖拽调整弹窗内“电量、网络、音量”的显示顺序。</li><li>将弹窗中的“Wi-Fi”区块更名为“网络”，更准确涵盖热点、临时连接和共享网络。</li><li>将“开机时启动”移动到“基础”设置页顶部，便于快速访问。</li><li>仅在弹窗打开时读取 Wi-Fi 和音频设备的详细信息，并在弹窗或设置窗口关闭后释放对应界面。</li><li>修正图标尺寸说明，使其与支持的 16–36 pt 范围一致。</li></ul>]]></description>
-      <enclosure url="https://github.com/lingyired/status-trio/releases/download/v1.0.4/StatusTrio-1.0.4.dmg"
-                 type="application/octet-stream"
-                 sparkle:edSignature="ZHG26ibhWij8QTeHoTCnYhtMk96fn/RalokuJXMo+duCa2eGvRZ8TMw+GzmWU9JoMmnywN7ibn3T206GQRCfAg=="
-                 length="2389375" />
-    </item>
-    <item>
-      <title>Version 1.0.3 (Build 4) （English + 中文， 中文在下方）</title>
-      <pubDate>Mon, 14 Sep 2026 07:22:38 +0000</pubDate>
-      <sparkle:version>4</sparkle:version>
-      <sparkle:shortVersionString>1.0.3</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<h2>English</h2><ul><li>Add configurable Wi-Fi status icons for connected and disconnected states.</li><li>Show a dedicated Ethernet icon when a wired connection is active.</li><li>Expand the menu bar icon size range.</li><li>Add output device list customization, including visibility controls, expand-all mode, and persistent drag reordering.</li><li>Improve popup icon alignment, volume controls, and the automatic updates toggle.</li></ul><h2>中文</h2><ul><li>支持为 Wi-Fi 已连接和未连接状态配置菜单栏图标。</li><li>有线网络连接时显示专属以太网状态图标。</li><li>扩大菜单栏图标尺寸的可调范围。</li><li>新增输出设备列表自定义功能，支持可见性、全部展开和持久化拖拽排序。</li><li>优化弹出窗口图标对齐、音量控制和自动更新开关。</li></ul>]]></description>
-      <enclosure url="https://github.com/lingyired/status-trio/releases/download/v1.0.3/StatusTrio-1.0.3.dmg"
-                 type="application/octet-stream"
-                 sparkle:edSignature="NrXoTnX8KkmgkY4wARp4APjYvQXflJKe5i2b8SHDaY7I80RFRWt21dscdjT5WSoJZwlqd9gVzFrVqTWEb4cjDg=="
-                 length="2311597" />
-    </item>
-    <item>
-      <title>Version 1.0.2 (Build 3)</title>
-      <pubDate>Sun, 13 Sep 2026 13:42:57 +0000</pubDate>
-      <sparkle:version>3</sparkle:version>
-      <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<ul><li>Adjust volume by scrolling inside the popup.</li><li>Support continuous trackpad adjustments with immediate volume display updates.</li><li>Preserve independent scrolling for the output device list.</li></ul>]]></description>
-      <enclosure url="https://github.com/lingyired/status-trio/releases/download/v1.0.2/StatusTrio-1.0.2.dmg"
-                 type="application/octet-stream"
-                 sparkle:edSignature="D45DY/TuhPhDTO4Bg2LylU29Tofr7YemdXI0rB0nlZC6X5ncBc2heF44lbHTpLqgCFeqo34NLYTknGXFcsbCAw=="
-                 length="2276356" />
-    </item>
-    <item>
-      <title>Version 1.0.1 (Build 2)</title>
-      <pubDate>Sun, 13 Sep 2026 12:51:03 +0000</pubDate>
-      <sparkle:version>2</sparkle:version>
-      <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<ul><li>fix: adapt battery details to menu bar foreground</li><li>feat: refine About pane identity and links</li><li>fix: refresh settings language immediately</li><li>docs: explain Gatekeeper first-install workflow</li><li>fix: make release checksum portable</li><li>chore: add Apache 2.0 license</li><li>fix: avoid Swift 6.1 compiler crash during release</li></ul>]]></description>
-      <enclosure url="https://github.com/lingyired/status-trio/releases/download/v1.0.1/StatusTrio-1.0.1.dmg"
-                 type="application/octet-stream"
-                 sparkle:edSignature="0b6VcL/TGBaAFHZ6xyvY6hTBxJqsGTS4sUobUvXAxLKtcxE1iwSubXFbqpLRPlcElZcKlQHG87Y+gUmzA9T6Bw=="
-                 length="2262644" />
-    </item>
-    <item>
-      <title>Version 1.0.0 (Build 1)</title>
-      <pubDate>Sun, 13 Sep 2026 11:23:33 +0000</pubDate>
-      <sparkle:version>1</sparkle:version>
-      <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<ul><li>fix: handle case-sensitive lproj names</li><li>ci: diagnose SwiftPM resource layout</li><li>fix: make localization bundle lookup CI-stable</li><li>Merge branch &#39;codex/status-icon-split-arc&#39;</li><li>feat: split battery arc around indicators</li><li>test: support weak references on Swift 6.1</li><li>fix: avoid isolated deinit for Swift 6.1</li><li>fix: support Swift 6.1 isolated deinit</li><li>build: add macOS GitHub release pipeline</li><li>docs: refresh README and About metadata</li><li>feat: add launch at login</li><li>Merge branch &#39;main&#39; into codex/settings-redesign</li><li>feat: redesign settings window</li><li>docs: plan Ad-hoc GitHub release pipeline</li><li>feat: add Sparkle auto-update support</li><li>chore: add project agent skills</li><li>Merge branch &#39;main&#39; into codex/multilingual-support</li><li>fix: bundle SwiftPM localization resources</li><li>docs: record automated verification</li><li>fix: use Wi-Fi strength in accessibility summary</li></ul>]]></description>
-      <enclosure url="https://github.com/lingyired/status-trio/releases/download/v1.0.0/StatusTrio-1.0.0.dmg"
-                 type="application/octet-stream"
-                 sparkle:edSignature="wFwcunzYqLg0k5g28+TFhiAflLrqhBj23IoGosmWMX/Z/8KHETz807zA1lIstwA2bkaUXvZw061mGqRuXaz3Ag=="
-                 length="2248466" />
-    </item>
   </channel>
 </rss>

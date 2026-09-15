@@ -66,7 +66,7 @@ swift build -c release
 
 ```bash
 gh workflow run release.yml \
-  --repo lingyired/status-trio \
+  --repo 404404/status-trio \
   --ref <branch> \
   -f version=<next-version> \
   -f build=<next-build> \
