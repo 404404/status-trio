@@ -398,7 +398,17 @@ final class WiFiNetworkController: ObservableObject {
 
     func refresh(nameAccess: WiFiNameAccess? = nil) {
         if let nameAccess { lastNameAccess = nameAccess }
-        guard isActive, !state.isScanning, !state.isConnectionFlow else { return }
+        guard isActive, !state.isConnectionFlow else { return }
+        // CoreWLAN may return empty or redacted results before authorization.
+        // Keep that distinct from a successful scan with no nearby networks.
+        guard lastNameAccess == .authorized else {
+            _ = scanGate.advance()
+            networks = []
+            details = .unavailable
+            state = lastNameAccess == .notDetermined ? .idle : .permissionDenied
+            return
+        }
+        guard !state.isScanning else { return }
 
         let request = scanGate.advance()
         state = .scanning

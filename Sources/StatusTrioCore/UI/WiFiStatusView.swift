@@ -11,25 +11,25 @@ struct WiFiStatusView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Button {
-                onOpenDetails(NSEvent.modifierFlags.contains(.option))
-            } label: {
-                HStack(spacing: 10) {
-                    WiFiStatusIcon(wifi: wifi)
-                    VStack(alignment: .leading, spacing: 2) {
+            WiFiStatusIcon(wifi: wifi)
+            VStack(alignment: .leading, spacing: 2) {
+                Button {
+                    onOpenDetails(NSEvent.modifierFlags.contains(.option))
+                } label: {
+                    HStack(spacing: 10) {
                         Text(localization.string(.networkTitle))
                             .font(.headline)
-                        subtitle
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
                     }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+                    .contentShape(Rectangle())
                 }
-                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+                .accessibilityLabel(wifiAccessibilityLabel)
+                subtitle
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(wifiAccessibilityLabel)
 
             Button(
                 localization.string(.wifiActionOpenSettings),

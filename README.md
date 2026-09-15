@@ -49,8 +49,10 @@ Status Trio is a native macOS menubar app that combines Wi-Fi, battery, and volu
 ```bash
 git clone https://github.com/404404/status-trio.git
 cd status-trio
-swift run StatusTrio
+bash scripts/build-app.sh release
 ```
+
+Wi-Fi names and scanning require location permission. Use the bundled app above: `swift run` launches a bare executable without the app’s privacy configuration.
 
 ## Build a local app
 

@@ -49,8 +49,10 @@ Status Trio 是一个原生 macOS 菜单栏（menubar）应用，将 Wi-Fi、电
 ```bash
 git clone https://github.com/404404/status-trio.git
 cd status-trio
-swift run StatusTrio
+bash scripts/build-app.sh release
 ```
+
+Wi-Fi 名称和扫描需要定位权限。请使用上述方式启动完整应用；`swift run` 启动的是裸可执行文件，不包含应用的隐私权限配置。
 
 ## 构建本地应用
 
