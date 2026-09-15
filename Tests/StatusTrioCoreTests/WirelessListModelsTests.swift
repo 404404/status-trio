@@ -1,4 +1,5 @@
 import AppKit
+import Security
 import XCTest
 @testable import StatusTrioCore
 
@@ -111,6 +112,49 @@ final class WirelessListModelsTests: XCTestCase {
             WiFiCredentialResult.issue(.accessDenied),
             WiFiCredentialResult.issue(.keychainLocked)
         )
+    }
+
+    func testWiFiServiceResolverUsesWiFiServiceRatherThanEthernetOrVPNGlobals() {
+        let snapshot: [String: [String: Any]] = [
+            "State:/Network/Global/IPv4": ["PrimaryService": "ethernet"],
+            "State:/Network/Service/ethernet/Interface": ["DeviceName": "en0"],
+            "State:/Network/Service/ethernet/IPv4": ["Router": "192.168.1.1"],
+            "State:/Network/Service/vpn/Interface": ["DeviceName": "utun4"],
+            "State:/Network/Service/vpn/DNS": ["ServerAddresses": ["10.0.0.53"]],
+            "State:/Network/Service/wifi/Interface": ["DeviceName": "en1"],
+            "State:/Network/Service/wifi/IPv4": ["Addresses": ["10.42.0.2"], "Router": "10.42.0.1"],
+            "State:/Network/Service/wifi/IPv6": ["Addresses": ["fe80::42"]],
+            "State:/Network/Service/wifi/DNS": ["ServerAddresses": ["10.42.0.1"]]
+        ]
+        let resolved = WiFiServiceNetworkConfiguration.resolve(interface: "en1", snapshot: snapshot)
+        XCTAssertEqual(resolved.ipv4Addresses, ["10.42.0.2"])
+        XCTAssertEqual(resolved.ipv6Addresses, ["fe80::42"])
+        XCTAssertEqual(resolved.router, "10.42.0.1")
+        XCTAssertEqual(resolved.dnsServers, ["10.42.0.1"])
+
+        let ambiguous = WiFiServiceNetworkConfiguration.resolve(interface: "en9", snapshot: [
+            "State:/Network/Service/a/Interface": ["DeviceName": "en9"],
+            "State:/Network/Service/b/Interface": ["DeviceName": "en9"]
+        ])
+        XCTAssertNil(ambiguous.router)
+        XCTAssertTrue(ambiguous.dnsServers.isEmpty)
+    }
+
+    func testKeychainPasswordStoreAddsReadsUpdatesAndCleansItsOwnItem() {
+        let service = "StatusTrioCoreTests.WiFiPassword.\(UUID().uuidString)"
+        let identity = WiFiNetworkIdentity(ssid: "Review Test Network", security: .wpa2Personal)
+        let cleanup: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: "\(identity.security.rawValue):\(identity.ssid)"
+        ]
+        defer { SecItemDelete(cleanup as CFDictionary) }
+
+        let store = KeychainWiFiPasswordStore(appService: service)
+        XCTAssertTrue(store.save("first-password", for: identity))
+        XCTAssertEqual(store.resolveCredential(for: identity), .credential("first-password", .appKeychain))
+        XCTAssertTrue(store.save("second-password", for: identity))
+        XCTAssertEqual(store.resolveCredential(for: identity), .credential("second-password", .appKeychain))
     }
 
     func testBluetoothAvailabilityMappingKeepsAuthorizationAndAdapterStatesDistinct() {

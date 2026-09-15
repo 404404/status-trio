@@ -70,6 +70,7 @@ APPCAST_SHA=""
 if [[ "$PUBLISH" == "true" ]]; then
     require_command gh
     if [[ -z "${GH_TOKEN:-}" ]] && ! gh auth status >/dev/null 2>&1; then echo "Error: gh is not authenticated." >&2; exit 1; fi
+    RELEASE_REPO="$RELEASE_REPO" BUNDLE_ID="$BUNDLE_ID" BUILD="$BUILD" ruby "$ROOT/scripts/validate-release-history.rb"
 fi
 if [[ "$PUBLISH_APPCAST" == "true" ]]; then
     require_command xmllint
@@ -130,6 +131,14 @@ fi
 
 DMG_FILENAME="$(basename "$DMG_PATH")"
 (cd "$OUTPUT_DIR" && shasum -a 256 "$DMG_FILENAME" > "$DMG_FILENAME.sha256")
+APP_PLIST="$ROOT/dist/StatusTrio.app/Contents/Info.plist"
+ACTUAL_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PLIST")"
+ACTUAL_VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PLIST")"
+ACTUAL_BUILD="$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_PLIST")"
+[[ "$ACTUAL_BUNDLE_ID" == "$BUNDLE_ID" && "$ACTUAL_VERSION" == "$VERSION" && "$ACTUAL_BUILD" == "$BUILD" ]] || { echo "Error: built app metadata does not match release inputs." >&2; exit 1; }
+DMG_SHA256="$(cut -d " " -f 1 "$DMG_PATH.sha256")"
+METADATA_PATH="$OUTPUT_DIR/$DMG_FILENAME.release-metadata.json"
+ruby -rjson -e 'puts JSON.generate(schema_version: 1, bundle_id: ARGV[0], version: ARGV[1], fork_revision: ARGV[2], build: ARGV[3], source_sha: ARGV[4], dmg_filename: ARGV[5], sha256: ARGV[6])' "$ACTUAL_BUNDLE_ID" "$ACTUAL_VERSION" "$FORK_REVISION" "$ACTUAL_BUILD" "$RELEASE_TARGET" "$DMG_FILENAME" "$DMG_SHA256" > "$METADATA_PATH"
 DMG_URL="https://github.com/$RELEASE_REPO/releases/download/$TAG/$DMG_FILENAME"
 {
     printf "VERSION=%q\n" "$VERSION"
@@ -152,7 +161,8 @@ if [[ "$PUBLISH" == "false" ]]; then echo "Built $DMG_PATH without publishing (S
 if gh release view "$TAG" --repo "$RELEASE_REPO" >/dev/null 2>&1; then echo "Error: GitHub Release $TAG already exists." >&2; exit 1; fi
 if gh api "repos/$RELEASE_REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then echo "Error: Git tag $TAG already exists; refusing to reuse or move it." >&2; exit 1; fi
 
-gh release create "$TAG" "$DMG_PATH" "$DMG_PATH.sha256" --repo "$RELEASE_REPO" --target "$RELEASE_TARGET" --title "$APP_NAME $VERSION — Fork $FORK_REVISION" --latest --notes-file "$RELEASE_BODY_FILE"
+RELEASE_REPO="$RELEASE_REPO" BUNDLE_ID="$BUNDLE_ID" BUILD="$BUILD" ruby "$ROOT/scripts/validate-release-history.rb"
+gh release create "$TAG" "$DMG_PATH" "$DMG_PATH.sha256" "$METADATA_PATH" --repo "$RELEASE_REPO" --target "$RELEASE_TARGET" --title "$APP_NAME $VERSION — Fork $FORK_REVISION" --latest --notes-file "$RELEASE_BODY_FILE"
 PUBLISHED_TAG_SHA="$(gh api "repos/$RELEASE_REPO/git/ref/tags/$TAG" --jq .object.sha)"
 [[ "$PUBLISHED_TAG_SHA" == "$RELEASE_TARGET" ]] || { echo "Error: release tag does not point to the built commit." >&2; exit 1; }
 

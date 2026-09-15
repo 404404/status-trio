@@ -222,7 +222,6 @@ final class SystemStatusStore: ObservableObject {
         popupPublishTask = nil
         popupSnapshot = snapshot
         refreshAll()
-        bluetoothDevices.activate()
         wifiNetworks.refresh(nameAccess: popupSnapshot.wifi.nameAccess)
     }
 
